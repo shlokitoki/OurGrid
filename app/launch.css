@@ -27,7 +27,9 @@
 .launch-idle-copy p{font-size:clamp(14px,1.18vw,18px);line-height:1.75;color:#789082;max-width:520px;margin:auto}
 .launch-typing{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .launch-typing h1{font-size:clamp(38px,5.1vw,76px);line-height:1.19;max-width:940px;margin:32px auto 0;min-height:2.5em}
+.launch-type-glyph{display:inline-block;white-space:pre;animation:launch-type-glyph .22s cubic-bezier(.2,.8,.2,1) both}
 .launch-cursor{display:inline-block;width:4px;height:.85em;margin-left:5px;background:#5b9b70;transform:translateY(.07em);animation:launch-cursor .75s steps(1) infinite}
+.launch-cursor.is-typing{animation:none}
 .launch-benefit-stage{min-height:310px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
 .launch-benefit-number{font-family:Manrope,var(--font);font-weight:750;font-size:33px;color:#65a578;margin-top:35px;animation:launch-swoosh .9s .3s both}
 .launch-benefit-number span{font-size:15px;color:#a3b5a4;font-weight:500}
@@ -52,9 +54,10 @@
 @keyframes launch-mesh-drift{to{transform:translate3d(-20px,16px,0) scale(1.025)}}
 @keyframes launch-ambient{to{transform:translate3d(34px,-23px,0)}}
 @keyframes launch-cursor{50%{opacity:0}}
+@keyframes launch-type-glyph{from{opacity:0;filter:blur(2px);transform:translateY(5px)}to{opacity:1;filter:blur(0);transform:translateY(0)}}
 @keyframes launch-swoosh{0%{opacity:0;filter:blur(10px);transform:translateX(-75px) scale(.97)}18%{opacity:1;filter:blur(0);transform:translateX(6px) scale(1)}25%{transform:translateX(0)}77%{opacity:1;filter:blur(0);transform:translateX(0)}100%{opacity:0;filter:blur(8px);transform:translateX(74px) scale(1.025)}}
 @keyframes launch-streak{0%{opacity:0;transform:translateX(-115%) scaleX(.2)}29%{opacity:.75}67%{opacity:0;transform:translateX(75%) scaleX(.75)}100%{opacity:0}}
 @keyframes launch-finale{from{opacity:0;filter:blur(9px);transform:translateY(22px)}to{opacity:1;filter:blur(0);transform:translateY(0)}}
 @media(max-width:750px){.launch-topline{padding:22px 22px}.launch-topnote{font-size:0}.launch-topnote i{display:block}.launch-body{padding:30px 21px 45px;min-height:420px}.launch-idle-copy h1{font-size:clamp(49px,10.5vw,79px)}.launch-typing h1,.launch-benefit-stage h1{font-size:clamp(36px,7.8vw,58px)}.launch-chapter,.launch-eyebrow{font-size:9px;letter-spacing:.17em}.launch-bottom{padding:0 22px 28px;display:flex;flex-direction:column;align-items:center;gap:17px}.launch-bottom::before{display:none}.launch-scroll-note{display:none}.launch-actions{order:1}.launch-final-logo{gap:10px}.launch-final-rule{margin:27px auto 24px}.launch-final-copy h1{font-size:clamp(24px,5vw,38px)}}
 @media(max-width:430px){.launch-topbrand{font-size:18px}.launch-body{min-height:360px}.launch-idle-copy h1{font-size:47px}.launch-idle-copy p{font-size:14px}.launch-benefit-stage h1{font-size:37px}.launch-final-logo{font-size:37px}.launch-final-mark{width:57px;height:57px;border-radius:17px}.launch-final-mark svg{width:30px}.launch-final-copy h1{font-size:25px}}
-@media(prefers-reduced-motion:reduce){.launch-mesh,.launch-ambient,.launch-cursor,.launch-benefit-number,.launch-benefit-stage h1,.launch-benefit-streak,.launch-final-copy{animation:none!important}.launch-benefit-streak,.launch-mesh-glow,.launch-field-aura{display:none}}
+@media(prefers-reduced-motion:reduce){.launch-mesh,.launch-ambient,.launch-cursor,.launch-type-glyph,.launch-benefit-number,.launch-benefit-stage h1,.launch-benefit-streak,.launch-final-copy{animation:none!important}.launch-benefit-streak,.launch-mesh-glow,.launch-field-aura{display:none}}

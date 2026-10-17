@@ -5,7 +5,7 @@ import {ArrowRight, Play, RotateCcw, Zap} from 'lucide-react';
 
 type Phase = 'idle' | 'hook' | 'benefits' | 'final';
 
-const HOOK = 'Smarter energy, lower bills, and stronger communities.';
+const HOOK = 'Smarter grids.';
 const BENEFITS = [
   'Optimize neighborhood electricity consumption',
   'Lower household electricity bills',
@@ -108,19 +108,25 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
 
   useEffect(() => {
     if (phase !== 'hook') return;
-    const copy = HOOK;
-    let position = 0;
     setTyped('');
+    const letterDuration = (41 * HOOK.length + 1500) / HOOK.length;
+    let startTime: number | undefined;
+    let shown = 0;
+    let frame = 0;
     let hold: ReturnType<typeof setTimeout> | undefined;
-    const timer = setInterval(() => {
-      position += 1;
-      setTyped(copy.slice(0, position));
-      if (position >= copy.length) {
-        clearInterval(timer);
-        hold = setTimeout(() => setPhase('benefits'), 1100);
+    const advance = (time: number) => {
+      startTime ??= time;
+      const count = Math.min(HOOK.length, Math.floor((time - startTime) / letterDuration));
+      if (count !== shown) {
+        shown = count;
+        setTyped(HOOK.slice(0, count));
       }
-    }, 41 + 1500 / copy.length);
-    return () => {clearInterval(timer); if (hold) clearTimeout(hold);};
+      if (count === HOOK.length) {
+        hold = setTimeout(() => setPhase('benefits'), 1100);
+      } else frame = requestAnimationFrame(advance);
+    };
+    frame = requestAnimationFrame(advance);
+    return () => {cancelAnimationFrame(frame); if (hold) clearTimeout(hold);};
   }, [phase]);
 
   useEffect(() => {
@@ -157,7 +163,7 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
       </div>}
       {phase === 'hook' && <div className="launch-typing">
         <span className="launch-chapter">01 / THE POSSIBILITY</span>
-        <h1 aria-label={HOOK}><span aria-hidden="true">{typed}</span><span className="launch-cursor" aria-hidden="true"/></h1>
+        <h1 aria-label={HOOK}><span aria-hidden="true">{[...typed].map((letter, index) => <span className="launch-type-glyph" key={index}>{letter === ' ' ? '\u00a0' : letter}</span>)}</span><span className={`launch-cursor ${typed.length < HOOK.length ? 'is-typing' : ''}`} aria-hidden="true"/></h1>
       </div>}
       {phase === 'benefits' && <div className="launch-benefit-stage" key={benefit}>
         <span className="launch-chapter">02 / WHAT GRACEGRID MAKES POSSIBLE</span>
