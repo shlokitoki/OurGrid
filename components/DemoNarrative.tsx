@@ -3,7 +3,7 @@ import {ArrowRight, BatteryCharging, House, Radio, ShieldCheck, Zap} from 'lucid
 import type {PeerExchange,Result} from './types';
 
 export const DEMO_DURATIONS = [2600,3000,5200,5200,4100,4500,4500,6200,5200,3500,4100,4300];
-export const DEMO_STEPS = ['Balance','Spike','EV slows','TV pauses','Safe batteries','Care home','Request','4 neighbors','Ledger','Links fail','Replan','Escalate','The outcome'];
+export const DEMO_STEPS = ['Balance','Demand spike','EV charging','Flexible loads','Battery dispatch','Critical needs','Support request','Neighbor offers','Energy ledger','Telemetry loss','Reoptimize','Dispatcher','Outcome'];
 
 export function stageCopy(step:number, normal:Result, spike:Result, failed:Result, peer:PeerExchange, focusId?:string, focusValue?:number, reserve?:number){
   const id=focusId || 'a participating home';
@@ -11,15 +11,15 @@ export function stageCopy(step:number, normal:Result, spike:Result, failed:Resul
   switch(step){
     case 0:return {chapter:'01 / NORMAL',title:'A neighborhood in balance',detail:`${normal.total_load_kw.toFixed(0)} kW demand. ${Math.round(normal.grid_capacity_kw-normal.total_load_kw)} kW of headroom.`,kind:'normal'};
     case 1:return {chapter:'02 / THE PROBLEM',title:'Demand outruns the grid',detail:`An evening spike creates a ${spike.target_kw.toFixed(0)} kW shortfall. Whole circuits could be interrupted.`,kind:'surge'};
-    case 2:return {chapter:'03 / EV CHARGING',title:'Slow one charger, spare the grid',detail:`At ${id}, charging eases by ${kw} kW for 15 minutes. ${spike.ev_count} opted-in EVs free ${spike.ev_kw.toFixed(1)} kW.`,kind:'ev'};
-    case 3:return {chapter:'04 / FLEXIBLE HOME',title:'TV and gaming can wait',detail:`${id} pauses ${kw} kW of entertainment use by choice. ${spike.voluntary_count} willing homes free ${spike.voluntary_kw.toFixed(1)} kW.`,kind:'voluntary'};
-    case 4:return {chapter:'05 / SAFE BATTERIES',title:'Share only spare battery energy',detail:`${id} adds ${kw} kW, staying above its ${Math.round((reserve||0)*100)}% backup floor. ${spike.dispatch_count} batteries provide ${spike.battery_kw.toFixed(1)} kW.`,kind:'battery'};
+    case 2:return {chapter:'03 / EV CHARGING',title:'Reduce flexible charging',detail:`At ${id}, charging drops ${kw} kW for 15 minutes. ${spike.ev_count} opted-in EVs reduce demand by ${spike.ev_kw.toFixed(1)} kW.`,kind:'ev'};
+    case 3:return {chapter:'04 / FLEXIBLE LOADS',title:'Defer optional home loads',detail:`With consent, ${id} pauses TV and gaming use, reducing demand by ${kw} kW. ${spike.voluntary_count} participating homes provide ${spike.voluntary_kw.toFixed(1)} kW.`,kind:'voluntary'};
+    case 4:return {chapter:'05 / BATTERY DISPATCH',title:'Dispatch above backup reserves',detail:`${id} contributes ${kw} kW while keeping its ${Math.round((reserve||0)*100)}% backup floor. ${spike.dispatch_count} batteries provide ${spike.battery_kw.toFixed(1)} kW.`,kind:'battery'};
     case 5:return {chapter:'06 / CRITICAL NEED',title:'Protect a home with medical equipment',detail:`${id} has an older resident using an oxygen concentrator. Its battery is below its no-export floor, so it does not export.`,kind:'care'};
     case 6:return {chapter:'07 / NEIGHBOR PORTAL',title:'A request goes to nearby homes',detail:`${id} requests ${peer.requested_kw.toFixed(1)} kW for 15 minutes. The portal matches consented, verified neighbors.`,kind:'request'};
-    case 7:return {chapter:'08 / NEIGHBORS RESPOND',title:'Four neighbors choose to help',detail:`Each approves ${peer.supplier_kw.toFixed(1)} kW of already-safe dispatch. Their combined ${peer.requested_kw.toFixed(1)} kW is allocated through the shared grid.`,kind:'neighbors'};
+    case 7:return {chapter:'08 / NEIGHBOR APPROVALS',title:'Four neighbors authorize support',detail:`Each approves ${peer.supplier_kw.toFixed(1)} kW of eligible battery capacity. The plan allocates ${peer.requested_kw.toFixed(1)} kW through the shared grid.`,kind:'neighbors'};
     case 8:return {chapter:'09 / FAIR EXCHANGE',title:'Every contribution is recorded',detail:`Each helper earns ${peer.energy_per_supplier_kwh.toFixed(3)} kWh of credit. At the demo rate, that is a bill credit instead of a free giveaway.`,kind:'ledger'};
-    case 9:return {chapter:'10 / DEVICE FAILURE',title:'Battery links go silent',detail:`${failed.unverified} batteries can no longer be verified. Their capacity leaves the plan; essential needs stay protected.`,kind:'failure'};
-    case 10:return {chapter:'11 / RE-OPTIMIZE',title:'The plan adapts',detail:`Verified options still recover ${failed.reduction_kw.toFixed(1)} kW. ${failed.unmet_kw.toFixed(1)} kW remains for a dispatcher.`,kind:'reoptimize'};
+    case 9:return {chapter:'10 / TELEMETRY LOSS',title:'Unverified capacity is excluded',detail:`${failed.unverified} batteries lose communication. The revised plan excludes them and keeps essential needs protected.`,kind:'failure'};
+    case 10:return {chapter:'11 / REOPTIMIZATION',title:'Recalculate verified capacity',detail:`Verified options still recover ${failed.reduction_kw.toFixed(1)} kW. ${failed.unmet_kw.toFixed(1)} kW remains for a dispatcher.`,kind:'reoptimize'};
     case 11:return {chapter:'12 / HUMAN DECISION',title:'Escalate what remains',detail:`${failed.avoided} homes are still spared versus circuit shedding. A dispatcher reviews the ${failed.unmet_kw.toFixed(1)} kW gap.`,kind:'escalate'};
     default:return {chapter:'13 / THE OUTCOME',title:'A stronger neighborhood',detail:'Less peak waste. Paid neighbor support. Protected essentials. Fewer avoidable interruptions.',kind:'conclusion'};
   }

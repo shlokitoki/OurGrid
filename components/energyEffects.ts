@@ -16,10 +16,12 @@ export function createEnergyEffects(scene:THREE.Scene,homes:BuildingPoint[],acti
   mesh.rotation.x=-Math.PI/2;mesh.position.set(x,9,z);group.add(mesh);rings.push(mesh);return mesh;
  };
  const label=(where:THREE.Vector3,title:string,color:string)=>{
-  const canvas=document.createElement('canvas');canvas.width=440;canvas.height=150;
-  const ctx=canvas.getContext('2d')!;ctx.fillStyle='#ffffff';ctx.beginPath();ctx.roundRect(4,4,432,142,29);ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=10;ctx.stroke();ctx.fillStyle=color;ctx.font='bold 57px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(title,220,78);
+  const canvas=document.createElement('canvas');const font='700 48px Arial, sans-serif';
+  const measure=canvas.getContext('2d')!;measure.font=font;
+  canvas.width=Math.max(310,Math.ceil(measure.measureText(title).width+100));canvas.height=140;
+  const ctx=canvas.getContext('2d')!;ctx.fillStyle='#ffffff';ctx.beginPath();ctx.roundRect(5,5,canvas.width-10,130,24);ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=6;ctx.stroke();ctx.fillStyle=color;ctx.font=font;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(title,canvas.width/2,70);
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
-  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false}));sprite.position.set(where.x,where.y+27,where.z);sprite.scale.set(54,18,1);group.add(sprite);
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false}));sprite.position.set(where.x,where.y+29,where.z);sprite.scale.set(canvas.width/canvas.height*18,18,1);group.add(sprite);
  };
  const flow=(from:THREE.Vector3,to:THREE.Vector3,color:number,offset:number,dim=false)=>{
   const start=from.clone().add(new THREE.Vector3(0,8,0));
@@ -31,7 +33,7 @@ export function createEnergyEffects(scene:THREE.Scene,homes:BuildingPoint[],acti
  };
  if(stage===1)for(const radius of [45,100,165,230])ring(cx,cz,radius,0xe3a762,.55);
  if(stage===2)label(focus,`EV −${actions[focusIndex]?.ev_kw.toFixed(1)} kW`,'#c58a2e');
- if(stage===3)label(focus,'TV + GAME PAUSED','#7965ba');
+ if(stage===3)label(focus,`FLEX LOAD −${actions[focusIndex]?.voluntary_kw.toFixed(1)} kW`,'#7965ba');
  if(stage===5){ring(focus.x,focus.z,22,0xc67760,.85);ring(focus.x,focus.z,37,0xd6ad7a,.45);label(focus,'CRITICAL HOME','#ad6856')}
  if(stage===6){ring(focus.x,focus.z,25,0x608dbd,.82);ring(focus.x,focus.z,50,0x8ea9c8,.48);label(focus,'2.0 kW REQUEST','#547cac')}
  if(stage===7||stage===8){
@@ -43,7 +45,7 @@ export function createEnergyEffects(scene:THREE.Scene,homes:BuildingPoint[],acti
    ring(supplier.x,supplier.z,8,approved?0x529b79:0xc1cbb7,approved?.85:.45);
    if(approved){flow(supplier,recipient.clone().add(new THREE.Vector3(0,12,0)),0x548fbd,i*.22);label(supplier,`+${peer.supplier_kw.toFixed(1)} kW`,'#438b73')}
   });
-  label(recipient,stage===8?'0.5 kWh MATCHED':`${(peer.supplier_indices.filter((_,i)=>approvedMask&(1<<i)).length*.5).toFixed(1)} kW MATCHED`,'#547cac');
+  label(recipient,stage===8?'0.5 kWh ALLOCATED':`${(peer.supplier_indices.filter((_,i)=>approvedMask&(1<<i)).length*.5).toFixed(1)} kW ALLOCATED`,'#547cac');
  }
  if(stage===9){
   const lost=homes.filter(h=>actions[h.index].status==='Unverified');

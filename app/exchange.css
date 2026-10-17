@@ -6,3 +6,13 @@
 @media(prefers-reduced-motion:reduce){.charger-cable path,.scene-bar i,.screen-pause,.request-paper>svg:last-child,.demo-closing{animation:none}.demo-steps{scroll-behavior:auto}}
 
 .recipient-debit{display:flex;justify-content:space-between;gap:8px;background:#f5f7f2;border-radius:6px;padding:9px;margin-top:10px;font-size:9px;color:#748a79}.recipient-debit b{color:#47745b}
+
+.scene-heading{display:grid;grid-template-columns:6px minmax(0,1fr) minmax(0,auto);gap:6px;align-items:center;min-height:20px}
+.scene-heading .scene-home-id{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scene-heading b{max-width:104px;margin-left:0;text-align:right;white-space:normal;overflow-wrap:break-word;line-height:1.25}
+.scene-readout span{min-width:0;flex:1;line-height:1.35;overflow-wrap:break-word}
+.scene-readout strong{flex:none;text-align:right}
+.scene-neighbors>div,.scene-ledger>div{min-width:0}
+.scene-neighbors b,.scene-neighbors small,.scene-ledger span{min-width:0;overflow-wrap:break-word}
+.scene-ledger b{flex:none;white-space:nowrap}
+@media(max-width:720px){.scene-heading b{max-width:80px}.scene-readout strong{font-size:10px}}
