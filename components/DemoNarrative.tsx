@@ -25,7 +25,7 @@ export function stageCopy(step:number, normal:Result, spike:Result, failed:Resul
   }
 }
 
-export function ProblemSolution(){return <section className="problem-solution" aria-label="The problem and GraceGrid response">
+export function ProblemSolution(){return <section className="problem-solution" aria-label="The problem and OurGrid response">
   <div className="primer-item"><div className="primer-icon risk"><Zap size={17}/></div><div><span className="primer-label">THE PROBLEM</span><strong>Demand can exceed supply.</strong><p>A sudden peak can force utilities to interrupt whole circuits.</p></div></div>
   <div className="primer-connector"><ArrowRight size={19}/></div>
   <div className="primer-item"><div className="primer-icon answer"><BatteryCharging size={18}/></div><div><span className="primer-label">THE RESPONSE</span><strong>Find the gentlest reduction.</strong><p>Slow flexible loads, protect backup, and match neighbor support.</p></div></div>

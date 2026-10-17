@@ -1,4 +1,4 @@
-# GraceGrid AI
+# OurGrid
 
 A light, interactive hackathon dashboard: Next.js, React, Three.js, and a reproducible Python/SciPy decision engine.
 
@@ -23,11 +23,11 @@ npm run build
 
 ## The demo
 
-The site opens on a light, animated energy-field mesh that softly illuminates nearby lines and nodes as the cursor moves. **View Launch** plays a typewriter hook and rhetorical question, then reveals six benefits one by one before fading in the GraceGrid logo at 75% opacity and the closing tagline. Clicking anywhere enters the dashboard; its header can reopen the launch page. Reduced-motion visitors go directly to the final launch frame.
+The site opens on a light, animated energy-field mesh that softly illuminates nearby lines and nodes as the cursor moves. **View Launch** types “Smarter grids.” and reveals six benefits one by one before fading in the OurGrid logo at 75% opacity and the closing tagline. Clicking anywhere enters the dashboard; its header can reopen the launch page. Reduced-motion visitors go directly to the final launch frame.
 
 The overview introduces the problem, response, and proof in three compact panels. **Run live demo** plays a paced 13-step, roughly 52-second story: normal load; a 150 kW spike; a zoom to an opted-in EV charger slowing; a second zoom to voluntarily deferred TV/game-console use; safe battery dispatch; a fictional critical-needs home below its no-export floor; a request in the Mueller neighborhood portal; four neighbors approving 0.5 kW each; a separate energy/bill-credit ledger; battery communication loss; recalculation; dispatcher escalation; and a persistent closing message. A segmented motion bar on the 3D model shows the current stage and its elapsed pace. Viewers can pause, resume, replay, or jump between stages.
 
-The care-home example is GG-046 (24% state of charge, 55% no-export floor), assigned a **fictional** older resident and oxygen concentrator. The four closest eligible verified neighbors each earmark 0.5 kW of battery dispatch *already included* in the optimized support plan. Over the 15-minute window that is 0.125 kWh per neighbor, 0.5 kWh total. This exchange adds no capacity or discharge to the optimizer result. The portal lets a viewer submit the simulated request, approve each offer, switch between kWh credits and an illustrative bill credit at $0.16/kWh, reset, and export the ledger. The receiving home has the matching simulated debit. The demo rate is not an actual Base Power or utility tariff; no money or electricity is transferred.
+The care-home example is OG-046 (24% state of charge, 55% no-export floor), assigned a **fictional** older resident and oxygen concentrator. The four closest eligible verified neighbors each earmark 0.5 kW of battery dispatch *already included* in the optimized support plan. Over the 15-minute window that is 0.125 kWh per neighbor, 0.5 kWh total. This exchange adds no capacity or discharge to the optimizer result. The portal lets a viewer submit the simulated request, approve each offer, switch between kWh credits and an illustrative bill credit at $0.16/kWh, reset, and export the ledger. The receiving home has the matching simulated debit. The demo rate is not an actual Base Power or utility tariff; no money or electricity is transferred.
 
 Animated arcs on the 3D map show **illustrative grid capacity and matched allocations**, not physical wires or guaranteed delivery to a particular house. The simulator models reduced net grid demand, not metered residential exports. Real peer sales, delivery assurances, medical backup, and billing would require a utility program and human oversight. The closing claim about lower bills is a potential benefit dependent on actual time-of-use tariffs and load timing.
 

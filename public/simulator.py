@@ -1,4 +1,4 @@
-"""GraceGrid: reproducible, fictional 100-home fleet and SciPy dispatch model.
+"""OurGrid: reproducible, fictional 100-home fleet and SciPy dispatch model.
 
 Power in kW, energy in kWh. A single 15-minute planning snapshot, no time accrual.
 Pre-solve all 32 finite demo scenarios for instant static-hosted playback.
@@ -32,7 +32,7 @@ def generate_fleet():
         voluntary = not critical and r.random() < .65
         ev_kw = round(min(load*.38,1.4),2) if ev and consent else 0
         voluntary_kw = round(min(load*.17,.55),2) if voluntary else 0
-        homes.append(dict(id=f'GG-{i+1:03}',index=i,capacity_kwh=CAPACITY,
+        homes.append(dict(id=f'OG-{i+1:03}',index=i,capacity_kwh=CAPACITY,
           soc=soc,health=health,reserve=reserve,critical=critical,load_kw=load,
           essential_kw=round(load*.38,2),battery_consent=consent,
           voluntary_consent=voluntary,ev_kw=ev_kw,voluntary_kw=voluntary_kw,

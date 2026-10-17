@@ -13,7 +13,6 @@
 .launch-ambient-two{background:#e5edd4;right:-17vw;top:-23vw;animation:launch-ambient 10s ease-in-out infinite alternate-reverse}
 .launch-topline{position:relative;z-index:1;padding:31px clamp(26px,5.1vw,82px);display:flex;justify-content:space-between;align-items:center;gap:20px}
 .launch-topbrand{display:flex;align-items:center;gap:12px;color:#244c3a;font-family:Manrope,var(--font);font-size:20px;font-weight:800;letter-spacing:-1.2px;white-space:nowrap}
-.launch-topbrand em,.launch-final-logo em{font-style:normal;color:#8b9f88;font-weight:500}
 .launch-topbrand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:#2e7053;color:#fff;box-shadow:0 8px 20px #2e705327}
 .launch-topnote{display:flex;align-items:center;gap:9px;font-size:11px;color:#829989;letter-spacing:.04em}
 .launch-topnote i{width:7px;height:7px;border-radius:50%;background:#75a989;box-shadow:0 0 0 4px #e1efe3}

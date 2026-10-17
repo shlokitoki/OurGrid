@@ -148,13 +148,13 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
     setPhase(window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'final' : 'hook');
   };
 
-  return <main ref={screenRef} className={`launch-screen launch-${phase}`} onClick={onEnter} aria-label="GraceGrid launch page">
+  return <main ref={screenRef} className={`launch-screen launch-${phase}`} onClick={onEnter} aria-label="OurGrid launch page">
     <Mesh/>
     <Mesh glow/>
     <div className="launch-field-aura" aria-hidden="true"/>
     <div className="launch-ambient launch-ambient-one" aria-hidden="true"/>
     <div className="launch-ambient launch-ambient-two" aria-hidden="true"/>
-    <div className="launch-topline"><div className="launch-topbrand"><span className="launch-topbrand-mark"><Zap size={19} fill="currentColor"/></span><span>GraceGrid <em>AI</em></span></div><span className="launch-topnote"><i/> A neighborhood energy system</span></div>
+    <div className="launch-topline"><div className="launch-topbrand"><span className="launch-topbrand-mark"><Zap size={19} fill="currentColor"/></span><span>OurGrid</span></div><span className="launch-topnote"><i/> A neighborhood energy system</span></div>
     <div className="launch-body">
       {phase === 'idle' && <div className="launch-idle-copy">
         <div className="launch-eyebrow"><span/> A NEW WAY TO KEEP THE LIGHTS ON <span/></div>
@@ -166,14 +166,14 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
         <h1 aria-label={HOOK}><span aria-hidden="true">{[...typed].map((letter, index) => <span className="launch-type-glyph" key={index}>{letter === ' ' ? '\u00a0' : letter}</span>)}</span><span className={`launch-cursor ${typed.length < HOOK.length ? 'is-typing' : ''}`} aria-hidden="true"/></h1>
       </div>}
       {phase === 'benefits' && <div className="launch-benefit-stage" key={benefit}>
-        <span className="launch-chapter">02 / WHAT GRACEGRID MAKES POSSIBLE</span>
+        <span className="launch-chapter">02 / WHAT OURGRID MAKES POSSIBLE</span>
         <div className="launch-benefit-number">0{benefit + 1}<span> / 06</span></div>
         <h1>{BENEFITS[benefit]}</h1>
         <div className="launch-benefit-streak" aria-hidden="true"/>
         <div className="launch-benefit-dots" aria-hidden="true">{BENEFITS.map((_, i) => <span key={i} className={i === benefit ? 'active' : ''}/>)}</div>
       </div>}
       {phase === 'final' && <div className="launch-final-copy">
-        <div className="launch-final-logo"><span className="launch-final-mark"><Zap size={42} fill="currentColor"/></span><span>GraceGrid <em>AI</em></span></div>
+        <div className="launch-final-logo"><span className="launch-final-mark"><Zap size={42} fill="currentColor"/></span><span>OurGrid</span></div>
         <div className="launch-final-rule"/>
         <h1>Don't wait for the grid to fail.<br/><em>Prevent the next crisis before it happens.</em></h1>
       </div>}

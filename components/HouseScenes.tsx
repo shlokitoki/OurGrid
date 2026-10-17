@@ -16,4 +16,4 @@ export function HouseScene({stage,focus,focusBattery,recipient,peer,approved}:{s
  </section>
 }
 
-export function ClosingStatement(){return <div className="demo-closing" role="status"><span>GRACEGRID AI</span><h2>Power works better<br/>together.</h2><div className="closing-grid"><p>Shift flexible use to lower-cost hours.</p><p>Sell safe spare energy through the grid for credit.</p><p>Protect critical homes and backup reserves.</p><p>Reduce avoidable interruptions and peak costs.</p></div><small>Illustrative simulation · human review remains in control</small></div>}
+export function ClosingStatement(){return <div className="demo-closing" role="status"><span>OURGRID</span><h2>Power works better<br/>together.</h2><div className="closing-grid"><p>Shift flexible use to lower-cost hours.</p><p>Sell safe spare energy through the grid for credit.</p><p>Protect critical homes and backup reserves.</p><p>Reduce avoidable interruptions and peak costs.</p></div><small>Illustrative simulation · human review remains in control</small></div>}
