@@ -3,12 +3,13 @@ import {useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import type {Action,Home,MapData} from './types';
+import {createEnergyEffects} from './energyEffects';
 
-type Props={actions:Action[];fleet:Home[];layer:string;selected:number|null;onSelect:(n:number)=>void;resetView:number;zoom:number};
+type Props={actions:Action[];fleet:Home[];layer:string;selected:number|null;onSelect:(n:number)=>void;resetView:number;zoom:number;demoStage:number;demoFocusIndex:number};
 type Building={body:THREE.Mesh;roof:THREE.Mesh;marker:THREE.Mesh;battery:THREE.Mesh;index:number;point:THREE.Vector3};
-export default function Neighborhood({actions,fleet,layer,selected,onSelect,resetView,zoom}:Props){
- const container=useRef<HTMLDivElement>(null),state=useRef<{camera:THREE.OrthographicCamera;controls:OrbitControls;buildings:Building[];render:()=>void;reset:()=>void}|null>(null),latest=useRef({actions,fleet,layer,selected,onSelect}),[failed,setFailed]=useState(false),[loaded,setLoaded]=useState(false),[hover,setHover]=useState<{id:string;x:number;y:number}|null>(null);
- useEffect(()=>{latest.current={actions,fleet,layer,selected,onSelect};if(state.current)updateColors(state.current.buildings,latest.current);},[actions,fleet,layer,selected,onSelect]);
+export default function Neighborhood({actions,fleet,layer,selected,onSelect,resetView,zoom,demoStage,demoFocusIndex}:Props){
+ const container=useRef<HTMLDivElement>(null),state=useRef<{camera:THREE.OrthographicCamera;controls:OrbitControls;buildings:Building[];render:()=>void;reset:()=>void;applyDemo:(stage:number,focus:number,actions:Action[])=>void}|null>(null),latest=useRef({actions,fleet,layer,selected,onSelect,demoStage,demoFocusIndex}),[failed,setFailed]=useState(false),[loaded,setLoaded]=useState(false),[hover,setHover]=useState<{id:string;x:number;y:number}|null>(null);
+ useEffect(()=>{latest.current={actions,fleet,layer,selected,onSelect,demoStage,demoFocusIndex};if(state.current){updateColors(state.current.buildings,latest.current);state.current.applyDemo(demoStage,demoFocusIndex,actions)}},[actions,fleet,layer,selected,onSelect,demoStage,demoFocusIndex]);
  useEffect(()=>{state.current?.reset()},[resetView]);
  const previousZoom=useRef(zoom);useEffect(()=>{if(state.current){state.current.camera.zoom=Math.min(3,Math.max(.5,state.current.camera.zoom*Math.pow(1.2,zoom-previousZoom.current)));state.current.camera.updateProjectionMatrix();state.current.render()}previousZoom.current=zoom},[zoom]);
  useEffect(()=>{
@@ -61,20 +62,51 @@ export default function Neighborhood({actions,fleet,layer,selected,onSelect,rese
    const trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.55,.7,5,5),new THREE.MeshStandardMaterial({color:'#b2b197'}),treePoints.length);const leaves=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(4.5,1),new THREE.MeshStandardMaterial({color:'#9cb887',roughness:1}),treePoints.length);const dummy=new THREE.Object3D();treePoints.forEach((p,i)=>{const scale=.8+random()*.5;dummy.position.set(p.x,2.5,p.z);dummy.scale.set(1,1,1);dummy.updateMatrix();trunk.setMatrixAt(i,dummy.matrix);dummy.position.y=5.6*scale;dummy.scale.set(scale,scale*1.1,scale);dummy.rotation.y=random()*Math.PI;dummy.updateMatrix();leaves.setMatrixAt(i,dummy.matrix);leaves.setColorAt(i,new THREE.Color().setHSL(.24+random()*.025,.19,.55+random()*.1))});leaves.castShadow=true;trunk.castShadow=true;leaves.receiveShadow=true;scene.add(trunk,leaves);
    // Labels retain OSM street names; place a single readable label on longer segments.
    const used=new Set<string>();for(const f of data.features.filter(f=>f.kind==='road'&&f.name)){if(used.has(f.name))continue;let best:number[][]|null=null;let max=0;for(let i=1;i<f.points.length;i++){const a=f.points[i-1],b=f.points[i],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(d>max){max=d;best=[a,b]}}if(!best||max<50)continue;const [a,b]=best;const x=(a[0]+b[0])/2,z=(a[1]+b[1])/2;if(Math.abs(x-cx)>300||Math.abs(z-cz)>320)continue;used.add(f.name);const labelCanvas=document.createElement('canvas');labelCanvas.width=512;labelCanvas.height=64;const c=labelCanvas.getContext('2d')!;c.font='500 23px Arial';c.fillStyle='#8d9c82';c.textAlign='center';c.textBaseline='middle';c.fillText(f.name.toUpperCase(),256,32);const tex=new THREE.CanvasTexture(labelCanvas);tex.colorSpace=THREE.SRGBColorSpace;const label=new THREE.Mesh(new THREE.PlaneGeometry(80,10),new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false}));label.rotation.set(-Math.PI/2,0,Math.atan2(-(b[1]-a[1]),b[0]-a[0]));label.position.set(x,.3,z);scene.add(label)}
+   const prefersReducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+   let activeStage=-1,focusIndex=-1,lastActions:Action[]|null=null,effects:ReturnType<typeof createEnergyEffects>|null=null;
+   const cameraGoal=new THREE.Vector3(cx+360,480,cz+420),targetGoal=new THREE.Vector3(cx,0,cz);
+   let goalZoom=1.32;
+   const applyDemo=(stage:number,focus:number,currentActions:Action[])=>{
+    if(stage===activeStage&&focus===focusIndex&&currentActions===lastActions)return;
+    effects?.dispose();effects=null;activeStage=stage;focusIndex=focus;lastActions=currentActions;
+    controls.enabled=stage<0;
+    if(stage<0)return;
+    effects=createEnergyEffects(scene,buildings,currentActions,stage,focus,cx,cz);
+    const spotlight=stage>=2&&stage<=5&&focus>=0;
+    const point=spotlight?effects.focus:new THREE.Vector3(cx,0,cz);
+    targetGoal.set(point.x,0,point.z);
+    if(spotlight){cameraGoal.set(point.x+195,255,point.z+235);goalZoom=2.05}
+    else if(stage===1){cameraGoal.set(cx+290,340,cz+350);goalZoom=1.28}
+    else{cameraGoal.set(cx+345,455,cz+410);goalZoom=1.22}
+   };
    const render=()=>renderer.render(scene,camera);const resize=()=>{const w=node.clientWidth,h=node.clientHeight;if(!w||!h)return;const half=270;camera.left=-half*w/h;camera.right=half*w/h;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();renderer.setSize(w,h);render()};
    const reset=()=>{camera.position.set(cx+360,480,cz+420);controls.target.set(cx,0,cz);camera.zoom=1.32;camera.updateProjectionMatrix();controls.update();render()};
-   state.current={camera,controls,buildings,render,reset};updateColors(buildings,latest.current);reset();resize();
+   state.current={camera,controls,buildings,render,reset,applyDemo};updateColors(buildings,latest.current);reset();resize();applyDemo(latest.current.demoStage,latest.current.demoFocusIndex,latest.current.actions);
    const observer=new ResizeObserver(resize);observer.observe(node);const raycaster=new THREE.Raycaster();const pointer=new THREE.Vector2();let down={x:0,y:0};
    const getHit=(e:PointerEvent)=>{const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);return raycaster.intersectObjects(picks,false)[0]};
    const onDown=(e:PointerEvent)=>{down={x:e.clientX,y:e.clientY}};const onUp=(e:PointerEvent)=>{if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>5)return;const hit=getHit(e);if(hit)latest.current.onSelect(hit.object.userData.homeIndex)};
    const onMove=(e:PointerEvent)=>{if(e.buttons)return;const hit=getHit(e);node.style.cursor=hit?'pointer':'grab';if(hit){const rect=node.getBoundingClientRect();setHover({id:latest.current.fleet[hit.object.userData.homeIndex].id,x:e.clientX-rect.left,y:e.clientY-rect.top})}else setHover(null)};const onLeave=()=>setHover(null);
    renderer.domElement.addEventListener('pointerdown',onDown);renderer.domElement.addEventListener('pointerup',onUp);renderer.domElement.addEventListener('pointermove',onMove);renderer.domElement.addEventListener('pointerleave',onLeave);
-   let frame=0,last=0;const animate=(time:number)=>{frame=requestAnimationFrame(animate);if(time-last<32)return;last=time;controls.update();renderer.render(scene,camera)};frame=requestAnimationFrame(animate);setLoaded(true);
-   cleanup=()=>{observer.disconnect();cancelAnimationFrame(frame);controls.dispose();renderer.domElement.removeEventListener('pointerdown',onDown);renderer.domElement.removeEventListener('pointerup',onUp);renderer.domElement.removeEventListener('pointermove',onMove);renderer.domElement.removeEventListener('pointerleave',onLeave);scene.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.LineSegments){o.geometry.dispose();const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if('map'in m)(m.map as THREE.Texture|null)?.dispose();m.dispose()})}});renderer.dispose();renderer.domElement.remove();state.current=null};
+   let frame=0,last=0;const animate=(time:number)=>{frame=requestAnimationFrame(animate);if(time-last<32)return;last=time;
+    if(activeStage>=0&&!prefersReducedMotion){camera.position.lerp(cameraGoal,.065);controls.target.lerp(targetGoal,.065);camera.zoom+=(goalZoom-camera.zoom)*.065;camera.updateProjectionMatrix();effects?.animate(time);const home=buildings.find(b=>b.index===focusIndex);if(home)home.marker.scale.setScalar(1.55+Math.sin(time*.005)*.17)}
+    controls.update();renderer.render(scene,camera)
+   };frame=requestAnimationFrame(animate);setLoaded(true);
+   cleanup=()=>{observer.disconnect();cancelAnimationFrame(frame);effects?.dispose();controls.dispose();renderer.domElement.removeEventListener('pointerdown',onDown);renderer.domElement.removeEventListener('pointerup',onUp);renderer.domElement.removeEventListener('pointermove',onMove);renderer.domElement.removeEventListener('pointerleave',onLeave);scene.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.LineSegments){o.geometry.dispose();const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if('map'in m)(m.map as THREE.Texture|null)?.dispose();m.dispose()})}});renderer.dispose();renderer.domElement.remove();state.current=null};
   }).catch(()=>{if(!stopped)setFailed(true)});
   return()=>{stopped=true;cleanup()};
  },[]);
  return <><div ref={container} className="map-canvas"/>{!loaded&&!failed&&<div className="map-loading"><span className="loader"/>Building Mueller in 3D…</div>}{failed&&<div className="map-error"><strong>The 3D view is unavailable on this device.</strong><p>The Fleet tab contains all 100 homes and their live scenario details.</p><button onClick={()=>window.location.reload()}>Reload 3D view</button></div>}{hover&&selected===null&&<div style={{position:'absolute',left:hover.x+12,top:hover.y-22,pointerEvents:'none',background:'#fff',borderRadius:5,padding:'6px 9px',boxShadow:'0 2px 10px #0001',fontSize:9,color:'#668055'}}>{hover.id} · inspect home</div>}</>
 }
-function updateColors(buildings:Building[],props:{actions:Action[];fleet:Home[];layer:string;selected:number|null}){for(const b of buildings){const a=props.actions[b.index];const c=a.status==='Offline'?'#bf7768':a.status==='Unverified'?'#c69964':a.battery_kw>.01?'#d6b05c':'#86aa8c';const color=props.layer==='charge'?new THREE.Color().setHSL(.22+props.fleet[b.index].soc*.12,.22,.54):new THREE.Color(c);(b.marker.material as THREE.MeshBasicMaterial).color.copy(color);(b.marker.material as THREE.MeshBasicMaterial).opacity=b.index===props.selected?1:.7;b.marker.scale.setScalar(b.index===props.selected?1.4:1);(b.battery.material as THREE.MeshStandardMaterial).color.copy(color);(b.roof.material as THREE.MeshStandardMaterial).color.set(a.status==='Verified'?'#678576':a.status==='Unverified'?'#c3b39b':'#b5998a');if(b.index===props.selected)(b.roof.material as THREE.MeshStandardMaterial).color.set('#648f72')}}
+function updateColors(buildings:Building[],props:{actions:Action[];fleet:Home[];layer:string;selected:number|null;demoStage:number;demoFocusIndex:number}){for(const b of buildings){
+ const a=props.actions[b.index],stage=props.demoStage;
+ const highlighted=stage===1||stage===2&&a.ev_kw>.01||stage===3&&a.voluntary_kw>.01||stage===4&&a.battery_kw>.01||stage===5&&a.status==='Unverified'||stage===6&&a.battery_kw>.01;
+ const phaseColor=stage===1?'#d4a66c':stage===2?'#e3b45a':stage===3?'#a39bc0':stage===4||stage===6?'#65b595':stage===5?'#c97b68':'#8dac82';
+ const c=highlighted?phaseColor:a.status==='Offline'?'#bf7768':a.status==='Unverified'?'#c69964':a.battery_kw>.01?'#d6b05c':'#86aa8c';
+ const color=props.layer==='charge'&&stage<0?new THREE.Color().setHSL(.22+props.fleet[b.index].soc*.12,.22,.54):new THREE.Color(c);
+ (b.marker.material as THREE.MeshBasicMaterial).color.copy(color);(b.marker.material as THREE.MeshBasicMaterial).opacity=b.index===props.selected||highlighted?1:.54;
+ b.marker.scale.setScalar(b.index===props.selected||b.index===props.demoFocusIndex&&stage>=0?1.55:highlighted?1.15:1);
+ (b.battery.material as THREE.MeshStandardMaterial).color.copy(color);
+ const roof=(b.roof.material as THREE.MeshStandardMaterial);roof.color.set(highlighted?phaseColor:a.status==='Verified'?'#678576':a.status==='Unverified'?'#c3b39b':'#b5998a');
+ if(b.index===props.selected)roof.color.set('#39805e')
+}}
 function pointInPolygon(x:number,z:number,points:number[][]){let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[i],b=points[j];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])inside=!inside}return inside}

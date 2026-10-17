@@ -23,13 +23,11 @@ npm run build
 
 ## The demo
 
-1. Begin at normal operation: 100 connected, fictional households.
-2. Press **Run live demo**, or introduce **Grid overload**. Demand rises 185 kW above normal, exceeding the unchanged grid limit by 150 kW. The model selects 31.81 kW EV deferral, 26.14 kW pre-consented voluntary reduction, and 92.05 kW battery support.
-3. Introduce **Communication loss**. All 50 unverified batteries become ineligible for battery dispatch. The new plan provides 135.36 kW and escalates the 14.64 kW unresolved shortage.
-4. Explore **Storm warning** (70% reserve floor), **Battery failures** (25 failed units), and combined events.
-5. Inspect any home in 3D or in the searchable Fleet table. Approve only simulated actions, acknowledge dispatcher escalation, and download a full JSON evidence report.
+The overview now introduces the problem, response, and proof in three compact panels. **Run live demo** plays an eight-step, approximately 30-second story: a balanced neighborhood; a 150 kW shortfall from an evening spike; 31.81 kW of opted-in EV deferral; 26.14 kW of pre-consented household reduction; 92.05 kW of verified battery support; 50 battery links going silent; a recalculated plan; and dispatcher review of the remaining 14.64 kW. The counter, impact comparison, roof colors, and demand chart update with each step. You can pause or jump between steps.
 
-Everyday mode requests a 28 kW reduction in peak demand. No price or monetary savings are claimed without a tariff or rebound model.
+Animated arcs on the 3D map show **illustrative released capacity**, not actual wires or the direction of physical electricity flow. The camera moves toward an example EV, voluntary-response home, safely dispatched battery, and failed connection. The neighborhood uses real Mueller, Austin building footprints with fictional household data.
+
+The main scenario controls also allow **Grid overload**, **Storm warning** (70% reserve floor), **Communication loss** (50 unverified batteries), **Battery failures** (25 failed units), and combinations. Inspect a home in 3D or in the searchable Fleet table; approve simulated actions, acknowledge dispatcher escalation, and download full JSON evidence. Everyday mode requests a 28 kW peak reduction. No price or monetary savings are claimed without a tariff or rebound model.
 
 ## Accounting and constraints
 
