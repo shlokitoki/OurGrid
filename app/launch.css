@@ -38,7 +38,7 @@
 .launch-benefit-dots{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:28px}
 .launch-benefit-dots span{width:5px;height:5px;background:#c7d8cb;border-radius:100%;transition:width .3s,background .3s}
 .launch-benefit-dots span.active{width:29px;border-radius:6px;background:#579d6c}
-.launch-final-copy{animation:launch-finale 1.45s ease-out both}
+.launch-final-copy{animation:launch-finale 1.45s ease-out .75s both}
 .launch-final-logo{opacity:.75;display:flex;justify-content:center;align-items:center;gap:20px;font-family:Manrope,var(--font);font-size:clamp(37px,5.1vw,74px);font-weight:800;letter-spacing:-.075em}
 .launch-final-mark{display:grid;place-items:center;width:clamp(64px,6.4vw,91px);height:clamp(64px,6.4vw,91px);background:#2f7755;color:#fff;border-radius:24px;box-shadow:0 20px 46px #367a5630}
 .launch-final-rule{height:1px;width:120px;background:#a2bba9;margin:42px auto 31px}
