@@ -23,11 +23,13 @@ npm run build
 
 ## The demo
 
-The overview now introduces the problem, response, and proof in three compact panels. **Run live demo** plays an eight-step, approximately 30-second story: a balanced neighborhood; a 150 kW shortfall from an evening spike; 31.81 kW of opted-in EV deferral; 26.14 kW of pre-consented household reduction; 92.05 kW of verified battery support; 50 battery links going silent; a recalculated plan; and dispatcher review of the remaining 14.64 kW. The counter, impact comparison, roof colors, and demand chart update with each step. You can pause or jump between steps.
+The overview introduces the problem, response, and proof in three compact panels. **Run live demo** plays a paced 13-step, roughly 52-second story: normal load; a 150 kW spike; a zoom to an opted-in EV charger slowing; a second zoom to a voluntarily paused TV/game console; safe battery dispatch; a fictional critical-needs home below its no-export floor; a request in the Mueller neighborhood portal; four neighbors approving 0.5 kW each; a separate energy/bill-credit ledger; battery communication loss; recalculation; dispatcher escalation; and a persistent closing message. Viewers can pause, resume, replay, or jump between stages.
 
-Animated arcs on the 3D map show **illustrative released capacity**, not actual wires or the direction of physical electricity flow. The camera moves toward an example EV, voluntary-response home, safely dispatched battery, and failed connection. The neighborhood uses real Mueller, Austin building footprints with fictional household data.
+The care-home example is GG-046 (24% state of charge, 55% no-export floor), assigned a **fictional** older resident and oxygen concentrator. The four closest eligible verified neighbors each earmark 0.5 kW of battery dispatch *already included* in the optimized support plan. Over the 15-minute window that is 0.125 kWh per neighbor, 0.5 kWh total. This exchange adds no capacity or discharge to the optimizer result. The portal lets a viewer submit the simulated request, approve each offer, switch between kWh credits and an illustrative bill credit at $0.16/kWh, reset, and export the ledger. The receiving home has the matching simulated debit. The demo rate is not an actual Base Power or utility tariff; no money or electricity is transferred.
 
-The main scenario controls also allow **Grid overload**, **Storm warning** (70% reserve floor), **Communication loss** (50 unverified batteries), **Battery failures** (25 failed units), and combinations. Inspect a home in 3D or in the searchable Fleet table; approve simulated actions, acknowledge dispatcher escalation, and download full JSON evidence. Everyday mode requests a 28 kW peak reduction. No price or monetary savings are claimed without a tariff or rebound model.
+Animated arcs on the 3D map show **illustrative grid capacity and matched allocations**, not physical wires or guaranteed delivery to a particular house. The simulator models reduced net grid demand, not metered residential exports. Real peer sales, delivery assurances, medical backup, and billing would require a utility program and human oversight. The closing claim about lower bills is a potential benefit dependent on actual time-of-use tariffs and load timing.
+
+The main controls also allow **Grid overload**, **Storm warning** (70% reserve floor), **Communication loss** (50 unverified batteries), **Battery failures** (25 failed units), and combinations. Inspect homes in the 3D map or searchable Fleet table, approve simulated actions, acknowledge dispatcher escalation, and download JSON evidence. Everyday mode requests a 28 kW peak reduction.
 
 ## Accounting and constraints
 
@@ -36,7 +38,7 @@ The main scenario controls also allow **Grid overload**, **Storm warning** (70% 
 - Stored energy = capacity × state of health × state of charge.
 - Decision horizon: 15 minutes. Discharge efficiency: 95%. No cumulative time simulation.
 - Essential consumption is never eligible for deferral. EV and household reductions require consent. Battery dispatch requires separate consent and verified telemetry.
-- Discharge is capped by power, energy above reserve, and the home's remaining total demand. No battery exports are modeled. Battery energy consumed = dispatch kW × 0.25 h ÷ 0.95.
+- Discharge is capped by power, energy above reserve, and the home's remaining total demand. No metered battery exports are modeled. Battery energy consumed = dispatch kW × 0.25 h ÷ 0.95.
 - Battery communication loss does not disable the separately modeled, verified EV and voluntary-demand channels.
 - If a storm reserve target exceeds present charge, the battery retains all existing energy and cannot dispatch. The model does not claim it can create missing reserve energy.
 - Objective: meet as much support as feasible, then minimize modeled disruption using EV deferral, voluntary reductions, and eligible batteries in that order.
@@ -52,4 +54,4 @@ Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright
 
 ## Verification
 
-`engine/test_simulator.py` checks all 32 scenarios for consent, exclusion of unverified and failed capacity, protected reserves, energy accounting, demand limits, reproducibility, and the demo narrative. The page was checked in a browser at desktop and mobile sizes, including scenario combinations, household selection, consent details, approval and escalation.
+`engine/test_simulator.py` checks all 32 scenarios for consent, exclusion of unverified and failed capacity, protected reserves, energy accounting, demand limits, reproducibility, and the neighbor allocation as a subset of existing safe dispatch. The page was checked in a browser at desktop and mobile sizes, including EV/TV close-ups, four progressive approvals, ledger settlement, scenario comparison, and the final fade-in.

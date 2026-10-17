@@ -22,6 +22,9 @@ def generate_fleet():
         critical = i % 9 == 0
         reserve = .55 if critical else r.choice([.25,.30,.35])
         soc = round(r.uniform(max(.42,reserve), .94), 3)
+        # One fictional critical-needs home starts below the no-export floor,
+        # so the neighbor-support story has a real low-backup case to inspect.
+        if i == 45: soc = .24
         health = round(r.uniform(.94, 1), 3)
         load = round(r.uniform(1.8, 4.8), 2)
         ev = i % 3 == 0
@@ -101,13 +104,43 @@ def solve(fleet, mask=0, mode='emergency'):
       solver='SciPy / HiGHS',solver_status=result.message)
     return data
 
+def build_peer_exchange(fleet, results, map_data):
+    """Earmark existing dispatch for a fictional, grid-mediated neighbor exchange.
+
+    The allocation is a subset of selected battery support, so it adds no new
+    supply to the optimizer's grid-support totals and makes no new battery draw.
+    """
+    spike=results['emergency-1'];comm=results['emergency-5']
+    recipient=min((h for h in fleet if h['critical'] and spike['actions'][h['index']]['battery_kw']<1e-6),
+                  key=lambda h:(h['soc']-h['reserve'],h['index']))
+    points={}
+    for feature in map_data['features']:
+        i=feature.get('homeIndex')
+        if i is None: continue
+        polygon=feature['points'][:-1]
+        points[i]=(sum(p[0] for p in polygon)/len(polygon),sum(p[1] for p in polygon)/len(polygon))
+    ri=recipient['index']
+    eligible=[h for h in fleet if h['index']!=ri and not h['critical'] and
+              h['battery_consent'] and min(spike['actions'][h['index']]['battery_kw'],
+              comm['actions'][h['index']]['battery_kw'])>=.5]
+    suppliers=sorted(eligible,key=lambda h:(math.dist(points[ri],points[h['index']]),h['index']))[:4]
+    if len(suppliers)!=4: raise RuntimeError('Insufficient verified neighbors for exchange demonstration')
+    return dict(recipient_index=ri,critical_need='Older resident with oxygen concentrator (fictional)',
+      supplier_indices=[h['index'] for h in suppliers],
+      supplier_kw=.5,requested_kw=2.0,horizon_hours=HORIZON,
+      energy_per_supplier_kwh=.5*HORIZON,total_energy_kwh=2*HORIZON,
+      illustrative_rate_per_kwh=.16,
+      note='Illustrative ledger allocation within the existing optimized battery dispatch; no additional grid-support or physical house-to-house wire.')
+
 def main():
     fleet=generate_fleet()
     results={f'{mode}-{mask}':solve(fleet,mask,mode) for mode in ['emergency','everyday'] for mask in range(16)}
+    map_data=json.loads((ROOT/'public'/'neighborhood.json').read_text())
+    peer_exchange=build_peer_exchange(fleet,results,map_data)
     doc=dict(seed=SEED,horizon_hours=HORIZON,discharge_efficiency=EFFICIENCY,
       capacity_reference='https://www.basepowercompany.com/specs/core',
       method='Precomputed exact scenario solves using Python scipy.optimize.linprog (HiGHS).',
-      fleet=fleet,results=results)
+      fleet=fleet,results=results,peer_exchange=peer_exchange)
     serialized=json.dumps(doc,separators=(',',':'))
     (ROOT/'public'/'simulation.json').write_text(serialized)
     print('Saved 32 reproducible scenario solves, 100 households.')

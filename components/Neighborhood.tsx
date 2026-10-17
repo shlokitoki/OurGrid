@@ -2,14 +2,14 @@
 import {useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import type {Action,Home,MapData} from './types';
+import type {Action,Home,MapData,PeerExchange} from './types';
 import {createEnergyEffects} from './energyEffects';
 
-type Props={actions:Action[];fleet:Home[];layer:string;selected:number|null;onSelect:(n:number)=>void;resetView:number;zoom:number;demoStage:number;demoFocusIndex:number};
+type Props={actions:Action[];fleet:Home[];layer:string;selected:number|null;onSelect:(n:number)=>void;resetView:number;zoom:number;demoStage:number;demoFocusIndex:number;peer:PeerExchange;approvedMask:number};
 type Building={body:THREE.Mesh;roof:THREE.Mesh;marker:THREE.Mesh;battery:THREE.Mesh;index:number;point:THREE.Vector3};
-export default function Neighborhood({actions,fleet,layer,selected,onSelect,resetView,zoom,demoStage,demoFocusIndex}:Props){
- const container=useRef<HTMLDivElement>(null),state=useRef<{camera:THREE.OrthographicCamera;controls:OrbitControls;buildings:Building[];render:()=>void;reset:()=>void;applyDemo:(stage:number,focus:number,actions:Action[])=>void}|null>(null),latest=useRef({actions,fleet,layer,selected,onSelect,demoStage,demoFocusIndex}),[failed,setFailed]=useState(false),[loaded,setLoaded]=useState(false),[hover,setHover]=useState<{id:string;x:number;y:number}|null>(null);
- useEffect(()=>{latest.current={actions,fleet,layer,selected,onSelect,demoStage,demoFocusIndex};if(state.current){updateColors(state.current.buildings,latest.current);state.current.applyDemo(demoStage,demoFocusIndex,actions)}},[actions,fleet,layer,selected,onSelect,demoStage,demoFocusIndex]);
+export default function Neighborhood({actions,fleet,layer,selected,onSelect,resetView,zoom,demoStage,demoFocusIndex,peer,approvedMask}:Props){
+ const container=useRef<HTMLDivElement>(null),state=useRef<{camera:THREE.OrthographicCamera;controls:OrbitControls;buildings:Building[];render:()=>void;reset:()=>void;applyDemo:(stage:number,focus:number,actions:Action[],mask:number)=>void}|null>(null),latest=useRef({actions,fleet,layer,selected,onSelect,demoStage,demoFocusIndex,peer,approvedMask}),[failed,setFailed]=useState(false),[loaded,setLoaded]=useState(false),[hover,setHover]=useState<{id:string;x:number;y:number}|null>(null);
+ useEffect(()=>{latest.current={actions,fleet,layer,selected,onSelect,demoStage,demoFocusIndex,peer,approvedMask};if(state.current){updateColors(state.current.buildings,latest.current);state.current.applyDemo(demoStage,demoFocusIndex,actions,approvedMask)}},[actions,fleet,layer,selected,onSelect,demoStage,demoFocusIndex,peer,approvedMask]);
  useEffect(()=>{state.current?.reset()},[resetView]);
  const previousZoom=useRef(zoom);useEffect(()=>{if(state.current){state.current.camera.zoom=Math.min(3,Math.max(.5,state.current.camera.zoom*Math.pow(1.2,zoom-previousZoom.current)));state.current.camera.updateProjectionMatrix();state.current.render()}previousZoom.current=zoom},[zoom]);
  useEffect(()=>{
@@ -63,25 +63,25 @@ export default function Neighborhood({actions,fleet,layer,selected,onSelect,rese
    // Labels retain OSM street names; place a single readable label on longer segments.
    const used=new Set<string>();for(const f of data.features.filter(f=>f.kind==='road'&&f.name)){if(used.has(f.name))continue;let best:number[][]|null=null;let max=0;for(let i=1;i<f.points.length;i++){const a=f.points[i-1],b=f.points[i],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(d>max){max=d;best=[a,b]}}if(!best||max<50)continue;const [a,b]=best;const x=(a[0]+b[0])/2,z=(a[1]+b[1])/2;if(Math.abs(x-cx)>300||Math.abs(z-cz)>320)continue;used.add(f.name);const labelCanvas=document.createElement('canvas');labelCanvas.width=512;labelCanvas.height=64;const c=labelCanvas.getContext('2d')!;c.font='500 23px Arial';c.fillStyle='#8d9c82';c.textAlign='center';c.textBaseline='middle';c.fillText(f.name.toUpperCase(),256,32);const tex=new THREE.CanvasTexture(labelCanvas);tex.colorSpace=THREE.SRGBColorSpace;const label=new THREE.Mesh(new THREE.PlaneGeometry(80,10),new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false}));label.rotation.set(-Math.PI/2,0,Math.atan2(-(b[1]-a[1]),b[0]-a[0]));label.position.set(x,.3,z);scene.add(label)}
    const prefersReducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-   let activeStage=-1,focusIndex=-1,lastActions:Action[]|null=null,effects:ReturnType<typeof createEnergyEffects>|null=null;
+   let activeStage=-1,focusIndex=-1,lastActions:Action[]|null=null,lastMask=-1,effects:ReturnType<typeof createEnergyEffects>|null=null;
    const cameraGoal=new THREE.Vector3(cx+360,480,cz+420),targetGoal=new THREE.Vector3(cx,0,cz);
    let goalZoom=1.32;
-   const applyDemo=(stage:number,focus:number,currentActions:Action[])=>{
-    if(stage===activeStage&&focus===focusIndex&&currentActions===lastActions)return;
-    effects?.dispose();effects=null;activeStage=stage;focusIndex=focus;lastActions=currentActions;
+   const applyDemo=(stage:number,focus:number,currentActions:Action[],mask:number)=>{
+    if(stage===activeStage&&focus===focusIndex&&currentActions===lastActions&&mask===lastMask)return;
+    effects?.dispose();effects=null;activeStage=stage;focusIndex=focus;lastActions=currentActions;lastMask=mask;
     controls.enabled=stage<0;
     if(stage<0)return;
-    effects=createEnergyEffects(scene,buildings,currentActions,stage,focus,cx,cz);
-    const spotlight=stage>=2&&stage<=5&&focus>=0;
+    effects=createEnergyEffects(scene,buildings,currentActions,stage,focus,cx,cz,latest.current.peer,mask);
+    const spotlight=[2,3,4,5,6,7,8,9].includes(stage)&&focus>=0;
     const point=spotlight?effects.focus:new THREE.Vector3(cx,0,cz);
     targetGoal.set(point.x,0,point.z);
-    if(spotlight){cameraGoal.set(point.x+195,255,point.z+235);goalZoom=2.05}
+    if(spotlight){const close=[2,3,5,6].includes(stage);cameraGoal.set(point.x+(close?115:195),close?175:255,point.z+(close?145:235));goalZoom=close?3:stage===7||stage===8?1.8:2.25}
     else if(stage===1){cameraGoal.set(cx+290,340,cz+350);goalZoom=1.28}
     else{cameraGoal.set(cx+345,455,cz+410);goalZoom=1.22}
    };
    const render=()=>renderer.render(scene,camera);const resize=()=>{const w=node.clientWidth,h=node.clientHeight;if(!w||!h)return;const half=270;camera.left=-half*w/h;camera.right=half*w/h;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();renderer.setSize(w,h);render()};
    const reset=()=>{camera.position.set(cx+360,480,cz+420);controls.target.set(cx,0,cz);camera.zoom=1.32;camera.updateProjectionMatrix();controls.update();render()};
-   state.current={camera,controls,buildings,render,reset,applyDemo};updateColors(buildings,latest.current);reset();resize();applyDemo(latest.current.demoStage,latest.current.demoFocusIndex,latest.current.actions);
+   state.current={camera,controls,buildings,render,reset,applyDemo};updateColors(buildings,latest.current);reset();resize();applyDemo(latest.current.demoStage,latest.current.demoFocusIndex,latest.current.actions,latest.current.approvedMask);
    const observer=new ResizeObserver(resize);observer.observe(node);const raycaster=new THREE.Raycaster();const pointer=new THREE.Vector2();let down={x:0,y:0};
    const getHit=(e:PointerEvent)=>{const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);return raycaster.intersectObjects(picks,false)[0]};
    const onDown=(e:PointerEvent)=>{down={x:e.clientX,y:e.clientY}};const onUp=(e:PointerEvent)=>{if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>5)return;const hit=getHit(e);if(hit)latest.current.onSelect(hit.object.userData.homeIndex)};
@@ -97,10 +97,12 @@ export default function Neighborhood({actions,fleet,layer,selected,onSelect,rese
  },[]);
  return <><div ref={container} className="map-canvas"/>{!loaded&&!failed&&<div className="map-loading"><span className="loader"/>Building Mueller in 3D…</div>}{failed&&<div className="map-error"><strong>The 3D view is unavailable on this device.</strong><p>The Fleet tab contains all 100 homes and their live scenario details.</p><button onClick={()=>window.location.reload()}>Reload 3D view</button></div>}{hover&&selected===null&&<div style={{position:'absolute',left:hover.x+12,top:hover.y-22,pointerEvents:'none',background:'#fff',borderRadius:5,padding:'6px 9px',boxShadow:'0 2px 10px #0001',fontSize:9,color:'#668055'}}>{hover.id} · inspect home</div>}</>
 }
-function updateColors(buildings:Building[],props:{actions:Action[];fleet:Home[];layer:string;selected:number|null;demoStage:number;demoFocusIndex:number}){for(const b of buildings){
+function updateColors(buildings:Building[],props:{actions:Action[];fleet:Home[];layer:string;selected:number|null;demoStage:number;demoFocusIndex:number;peer:PeerExchange;approvedMask:number}){for(const b of buildings){
  const a=props.actions[b.index],stage=props.demoStage;
- const highlighted=stage===1||stage===2&&a.ev_kw>.01||stage===3&&a.voluntary_kw>.01||stage===4&&a.battery_kw>.01||stage===5&&a.status==='Unverified'||stage===6&&a.battery_kw>.01;
- const phaseColor=stage===1?'#d4a66c':stage===2?'#e3b45a':stage===3?'#a39bc0':stage===4||stage===6?'#65b595':stage===5?'#c97b68':'#8dac82';
+ const helperIndex=props.peer.supplier_indices.indexOf(b.index),helper=helperIndex>=0&&(stage===8||stage===7&&!!(props.approvedMask&(1<<helperIndex)));
+ const recipient=b.index===props.peer.recipient_index&&stage>=5&&stage<=8;
+ const highlighted=stage===1||stage===2&&a.ev_kw>.01||stage===3&&a.voluntary_kw>.01||stage===4&&a.battery_kw>.01||recipient||helper||stage===9&&a.status==='Unverified'||stage===10&&a.battery_kw>.01;
+ const phaseColor=stage===1?'#d4a66c':stage===2?'#e3b45a':stage===3?'#a39bc0':recipient?'#78a5ca':helper?'#62b88f':stage===9?'#c97b68':'#65b595';
  const c=highlighted?phaseColor:a.status==='Offline'?'#bf7768':a.status==='Unverified'?'#c69964':a.battery_kw>.01?'#d6b05c':'#86aa8c';
  const color=props.layer==='charge'&&stage<0?new THREE.Color().setHSL(.22+props.fleet[b.index].soc*.12,.22,.54):new THREE.Color(c);
  (b.marker.material as THREE.MeshBasicMaterial).color.copy(color);(b.marker.material as THREE.MeshBasicMaterial).opacity=b.index===props.selected||highlighted?1:.54;

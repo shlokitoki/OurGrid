@@ -1,6 +1,6 @@
 """Safety, consent, energy accounting, and comparison checks for every scenario."""
-import unittest
-from simulator import generate_fleet, solve, HORIZON, EFFICIENCY
+import unittest,json
+from simulator import generate_fleet, solve, build_peer_exchange, ROOT, HORIZON, EFFICIENCY
 class SafetyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -35,4 +35,21 @@ class SafetyTests(unittest.TestCase):
     def test_determinism(self):
         self.assertEqual(generate_fleet(),self.fleet)
         self.assertEqual(solve(self.fleet,5),solve(self.fleet,5))
+    def test_peer_exchange_is_existing_safe_dispatch(self):
+        results={f'emergency-{mask}':solve(self.fleet,mask) for mask in (1,5)}
+        map_data=json.loads((ROOT/'public'/'neighborhood.json').read_text())
+        exchange=build_peer_exchange(self.fleet,results,map_data)
+        recipient=self.fleet[exchange['recipient_index']]
+        self.assertTrue(recipient['critical'])
+        self.assertLess(recipient['soc'],recipient['reserve'])
+        self.assertEqual(len(exchange['supplier_indices']),4)
+        self.assertAlmostEqual(exchange['total_energy_kwh'],exchange['requested_kw']*HORIZON)
+        for index in exchange['supplier_indices']:
+            home=self.fleet[index]
+            self.assertTrue(home['battery_consent'])
+            for result in results.values():
+                action=result['actions'][index]
+                self.assertEqual(action['status'],'Verified')
+                self.assertGreaterEqual(action['battery_kw']+1e-6,exchange['supplier_kw'])
+                self.assertGreaterEqual(action['post_energy_kwh']+1e-6,action['protected_kwh'])
 if __name__=='__main__':unittest.main()
