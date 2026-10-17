@@ -23,6 +23,8 @@ npm run build
 
 ## The demo
 
+The site opens on a light, animated neighborhood mesh. **View Launch** plays a typewriter hook and rhetorical question, then reveals six benefits one by one before fading in the GraceGrid logo at 75% opacity and the closing tagline. Clicking anywhere enters the dashboard; its header can reopen the launch page. Reduced-motion visitors go directly to the final launch frame.
+
 The overview introduces the problem, response, and proof in three compact panels. **Run live demo** plays a paced 13-step, roughly 52-second story: normal load; a 150 kW spike; a zoom to an opted-in EV charger slowing; a second zoom to a voluntarily paused TV/game console; safe battery dispatch; a fictional critical-needs home below its no-export floor; a request in the Mueller neighborhood portal; four neighbors approving 0.5 kW each; a separate energy/bill-credit ledger; battery communication loss; recalculation; dispatcher escalation; and a persistent closing message. Viewers can pause, resume, replay, or jump between stages.
 
 The care-home example is GG-046 (24% state of charge, 55% no-export floor), assigned a **fictional** older resident and oxygen concentrator. The four closest eligible verified neighbors each earmark 0.5 kW of battery dispatch *already included* in the optimized support plan. Over the 15-minute window that is 0.125 kWh per neighbor, 0.5 kWh total. This exchange adds no capacity or discharge to the optimizer result. The portal lets a viewer submit the simulated request, approve each offer, switch between kWh credits and an illustrative bill credit at $0.16/kWh, reset, and export the ledger. The receiving home has the matching simulated debit. The demo rate is not an actual Base Power or utility tariff; no money or electricity is transferred.
@@ -54,4 +56,4 @@ Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright
 
 ## Verification
 
-`engine/test_simulator.py` checks all 32 scenarios for consent, exclusion of unverified and failed capacity, protected reserves, energy accounting, demand limits, reproducibility, and the neighbor allocation as a subset of existing safe dispatch. The page was checked in a browser at desktop and mobile sizes, including EV/TV close-ups, four progressive approvals, ledger settlement, scenario comparison, and the final fade-in.
+`engine/test_simulator.py` checks all 32 scenarios for consent, exclusion of unverified and failed capacity, protected reserves, energy accounting, demand limits, reproducibility, and the neighbor allocation as a subset of existing safe dispatch. The launch sequence and entry/replay handoff were checked in a browser, as were the earlier dashboard flows: EV/TV close-ups, four progressive approvals, ledger settlement, scenario comparison, and the final fade-in.
