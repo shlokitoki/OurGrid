@@ -3,10 +3,9 @@
 import {memo, useEffect, useRef, useState} from 'react';
 import {ArrowRight, Play, RotateCcw, Zap} from 'lucide-react';
 
-type Phase = 'idle' | 'hook' | 'question' | 'benefits' | 'final';
+type Phase = 'idle' | 'hook' | 'benefits' | 'final';
 
 const HOOK = 'Smarter energy, lower bills, and stronger communities.';
-const QUESTION = 'What if the energy your neighborhood needs is already next door?';
 const BENEFITS = [
   'Optimize neighborhood electricity consumption',
   'Lower household electricity bills',
@@ -108,9 +107,8 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
   }, []);
 
   useEffect(() => {
-    if (phase !== 'hook' && phase !== 'question') return;
-    const copy = phase === 'hook' ? HOOK : QUESTION;
-    const next: Phase = phase === 'hook' ? 'question' : 'benefits';
+    if (phase !== 'hook') return;
+    const copy = HOOK;
     let position = 0;
     setTyped('');
     let hold: ReturnType<typeof setTimeout> | undefined;
@@ -119,9 +117,9 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
       setTyped(copy.slice(0, position));
       if (position >= copy.length) {
         clearInterval(timer);
-        hold = setTimeout(() => setPhase(next), phase === 'hook' ? 1100 : 1350);
+        hold = setTimeout(() => setPhase('benefits'), 1100);
       }
-    }, (phase === 'hook' ? 41 : 36) + 1500 / copy.length);
+    }, 41 + 1500 / copy.length);
     return () => {clearInterval(timer); if (hold) clearTimeout(hold);};
   }, [phase]);
 
@@ -133,7 +131,7 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
       index += 1;
       if (index === BENEFITS.length) {clearInterval(timer); setPhase('final');}
       else setBenefit(index);
-    }, 1950);
+    }, 1200);
     return () => clearInterval(timer);
   }, [phase]);
 
@@ -157,12 +155,12 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
         <h1>Power is closer<br/><em>than you think.</em></h1>
         <p>See how a neighborhood can use the energy it already has to protect what matters most.</p>
       </div>}
-      {(phase === 'hook' || phase === 'question') && <div className="launch-typing" key={phase}>
-        <span className="launch-chapter">{phase === 'hook' ? '01 / THE POSSIBILITY' : '02 / THE QUESTION'}</span>
-        <h1 aria-label={phase === 'hook' ? HOOK : QUESTION}><span aria-hidden="true">{typed}</span><span className="launch-cursor" aria-hidden="true"/></h1>
+      {phase === 'hook' && <div className="launch-typing">
+        <span className="launch-chapter">01 / THE POSSIBILITY</span>
+        <h1 aria-label={HOOK}><span aria-hidden="true">{typed}</span><span className="launch-cursor" aria-hidden="true"/></h1>
       </div>}
       {phase === 'benefits' && <div className="launch-benefit-stage" key={benefit}>
-        <span className="launch-chapter">03 / WHAT GRACEGRID MAKES POSSIBLE</span>
+        <span className="launch-chapter">02 / WHAT GRACEGRID MAKES POSSIBLE</span>
         <div className="launch-benefit-number">0{benefit + 1}<span> / 06</span></div>
         <h1>{BENEFITS[benefit]}</h1>
         <div className="launch-benefit-streak" aria-hidden="true"/>
