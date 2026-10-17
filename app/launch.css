@@ -2,14 +2,12 @@
 .launch-screen::before{content:'';position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse 64% 70% at 51% 45%,#f8faf6 2%,#f8faf6dd 39%,#f8faf6aa 68%,transparent 100%);pointer-events:none}
 .launch-screen::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,#fbfcf9ad 0%,transparent 23%,transparent 72%,#fbfcf9c9 100%);pointer-events:none}
 .launch-mesh{position:absolute;inset:-4%;width:108%;height:108%;z-index:-2;opacity:.9;animation:launch-mesh-drift 18s ease-in-out infinite alternate}
-.launch-mesh-lines{fill:none;stroke:#9fc2aa;stroke-width:1.25;opacity:.42}
-.launch-mesh-nodes{fill:#78a788;opacity:.42}
-.launch-mesh-glow{z-index:0;opacity:0;pointer-events:none;-webkit-mask-image:radial-gradient(circle 240px at var(--mesh-field-x,50%) var(--mesh-field-y,50%),#000 0%,#0009 35%,transparent 78%);mask-image:radial-gradient(circle 240px at var(--mesh-field-x,50%) var(--mesh-field-y,50%),#000 0%,#0009 35%,transparent 78%);transition:opacity .26s ease}
+.launch-mesh-lines{fill:none;stroke:#9fc2aa;stroke-width:1.15;opacity:.34}
+.launch-mesh-nodes{fill:#78a788;opacity:.38}
+.launch-mesh-glow{z-index:0;opacity:var(--field-glow-opacity,0);pointer-events:none;-webkit-mask-image:radial-gradient(circle 260px at var(--mesh-field-x,50%) var(--mesh-field-y,50%),#000 0%,#0009 35%,transparent 78%);mask-image:radial-gradient(circle 260px at var(--mesh-field-x,50%) var(--mesh-field-y,50%),#000 0%,#0009 35%,transparent 78%)}
 .launch-mesh-glow .launch-mesh-lines{stroke:#3eaf71;stroke-width:2.4;opacity:.85;filter:drop-shadow(0 0 5px #67d492)}
 .launch-mesh-glow .launch-mesh-nodes{fill:#319b61;opacity:1;filter:drop-shadow(0 0 7px #4dc47d)}
-.launch-field-aura{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;background:radial-gradient(circle 205px at var(--field-x,50%) var(--field-y,50%),#b7dfc266 0%,#d9efdc33 38%,transparent 78%);transition:opacity .3s ease}
-.launch-screen[data-field-active=true] .launch-mesh-glow{opacity:.82}
-.launch-screen[data-field-active=true] .launch-field-aura{opacity:.7}
+.launch-field-aura{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:var(--field-aura-opacity,0);background:radial-gradient(circle 230px at var(--field-x,50%) var(--field-y,50%),#b7dfc266 0%,#d9efdc33 38%,transparent 78%)}
 .launch-ambient{position:absolute;z-index:-1;width:38vw;aspect-ratio:1;border-radius:50%;filter:blur(84px);pointer-events:none;opacity:.55}
 .launch-ambient-one{background:#d2ebd5;left:-17vw;bottom:-25vw;animation:launch-ambient 9s ease-in-out infinite alternate}
 .launch-ambient-two{background:#e5edd4;right:-17vw;top:-23vw;animation:launch-ambient 10s ease-in-out infinite alternate-reverse}

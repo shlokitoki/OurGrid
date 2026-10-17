@@ -1,6 +1,6 @@
 'use client';
 
-import {memo, useEffect, useState} from 'react';
+import {memo, useEffect, useRef, useState} from 'react';
 import {ArrowRight, Play, RotateCcw, Zap} from 'lucide-react';
 
 type Phase = 'idle' | 'hook' | 'question' | 'benefits' | 'final';
@@ -16,23 +16,32 @@ const BENEFITS = [
   'Make communities more resilient',
 ];
 
-const meshPoint = (row: number, col: number) => ({
-  x: Math.round(col * 96 - 48 + Math.sin(row * 0.8 + col * 0.52) * 19),
-  y: Math.round(row * 88 - 36 + Math.cos(col * 0.7 + row * 0.37) * 15),
-});
-
-const horizontal = Array.from({length: 13}, (_, row) =>
-    Array.from({length: 18}, (_, col) => meshPoint(row, col)).map(({x, y}) => `${x},${y}`).join(' ')
+const ROWS = 18;
+const COLS = 26;
+const meshPoints = Array.from({length: ROWS}, (_, row) =>
+  Array.from({length: COLS}, (_, col) => ({
+    x: Math.round(col * 64 - 34 + Math.sin(row * .77 + col * .46) * 12),
+    y: Math.round(row * 62 - 24 + Math.cos(col * .62 + row * .35) * 10),
+  }))
 );
-const vertical = Array.from({length: 18}, (_, col) =>
-    Array.from({length: 13}, (_, row) => meshPoint(row, col)).map(({x, y}) => `${x},${y}`).join(' ')
-);
-const nodes = Array.from({length: 13}, (_, row) => Array.from({length: 18}, (_, col) => ({...meshPoint(row, col), key: `${row}-${col}`, radius: (row + col) % 5 === 0 ? 2.2 : 1.25}))).flat();
+const nodeSites = meshPoints.flatMap((row, r) => row.flatMap((_, c) => (r + c) % 3 === 0 ? [{row: r, col: c, radius: (r + c) % 6 === 0 ? 2.35 : 1.5}] : []));
+type MeshPoint = {x: number; y: number};
+const pointText = (point: MeshPoint) => `${Math.round(point.x * 10) / 10},${Math.round(point.y * 10) / 10}`;
+const linePath = (points: MeshPoint[][]) => [
+  ...points.map(row => `M${row.map(pointText).join('L')}`),
+  ...Array.from({length: COLS}, (_, col) => `M${points.map(row => pointText(row[col])).join('L')}`),
+].join('');
+const nodePath = (points: MeshPoint[][]) => nodeSites.map(({row, col, radius}) => {
+  const {x, y} = points[row][col];
+  return `M${Math.round((x - radius) * 10) / 10},${Math.round(y * 10) / 10}a${radius},${radius} 0 1,0 ${radius * 2},0a${radius},${radius} 0 1,0 -${radius * 2},0`;
+}).join('');
+const initialLines = linePath(meshPoints);
+const initialNodes = nodePath(meshPoints);
 
 const Mesh = memo(function Mesh({glow = false}: {glow?: boolean}) {
   return <svg className={glow ? 'launch-mesh launch-mesh-glow' : 'launch-mesh'} viewBox="0 0 1536 1056" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <g className="launch-mesh-lines">{horizontal.map((points, i) => <polyline key={`h${i}`} points={points}/>)}{vertical.map((points, i) => <polyline key={`v${i}`} points={points}/>)}</g>
-    <g className="launch-mesh-nodes">{nodes.map(({key, x, y, radius}) => <circle key={key} cx={x} cy={y} r={radius}/>)}</g>
+    <path className="launch-mesh-lines" d={initialLines}/>
+    <path className="launch-mesh-nodes" d={initialNodes}/>
   </svg>;
 });
 
@@ -40,6 +49,63 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [typed, setTyped] = useState('');
   const [benefit, setBenefit] = useState(0);
+  const screenRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const screen = screenRef.current;
+    const base = screen?.querySelector<SVGSVGElement>('.launch-mesh:not(.launch-mesh-glow)');
+    const glow = screen?.querySelector<SVGSVGElement>('.launch-mesh-glow');
+    if (!screen || !base || !glow || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const paths = [base, glow].map(svg => ({lines: svg.querySelector<SVGPathElement>('.launch-mesh-lines')!, nodes: svg.querySelector<SVGPathElement>('.launch-mesh-nodes')!}));
+    let targetX = 0, targetY = 0, currentX = 0, currentY = 0, strength = 0, active = false, running = false, frame = 0, last = 0;
+    const animate = (time: number) => {
+      if (time - last < 28) {frame = requestAnimationFrame(animate); return;}
+      last = time;
+      const beforeX = currentX, beforeY = currentY;
+      currentX += (targetX - currentX) * .19;
+      currentY += (targetY - currentY) * .19;
+      strength += ((active ? 1 : 0) - strength) * .14;
+      const screenRect = screen.getBoundingClientRect();
+      const glowRect = glow.getBoundingClientRect();
+      screen.style.setProperty('--field-x', `${currentX - screenRect.left}px`);
+      screen.style.setProperty('--field-y', `${currentY - screenRect.top}px`);
+      screen.style.setProperty('--mesh-field-x', `${currentX - glowRect.left}px`);
+      screen.style.setProperty('--mesh-field-y', `${currentY - glowRect.top}px`);
+      screen.style.setProperty('--field-glow-opacity', (strength * .82).toFixed(3));
+      screen.style.setProperty('--field-aura-opacity', (strength * .7).toFixed(3));
+      const matrix = base.getScreenCTM();
+      if (matrix) {
+        const cursor = new DOMPoint(currentX, currentY).matrixTransform(matrix.inverse());
+        const velocityX = (currentX - beforeX) * .45, velocityY = (currentY - beforeY) * .45;
+        const warped = meshPoints.map(row => row.map(point => {
+          const dx = cursor.x - point.x, dy = cursor.y - point.y;
+          const distance = Math.hypot(dx, dy);
+          const weight = Math.max(0, 1 - distance / 220) ** 2 * strength;
+          const pull = 19 * weight / Math.max(distance, 1);
+          return {x: point.x + dx * pull - velocityX * weight, y: point.y + dy * pull - velocityY * weight};
+        }));
+        const lines = linePath(warped), nodes = nodePath(warped);
+        paths.forEach(path => {path.lines.setAttribute('d', lines); path.nodes.setAttribute('d', nodes);});
+      }
+      if (active || strength > .008 || Math.abs(targetX - currentX) + Math.abs(targetY - currentY) > .5) frame = requestAnimationFrame(animate);
+      else {
+        running = false;
+        paths.forEach(path => {path.lines.setAttribute('d', initialLines); path.nodes.setAttribute('d', initialNodes);});
+        screen.style.setProperty('--field-glow-opacity', '0');
+        screen.style.setProperty('--field-aura-opacity', '0');
+      }
+    };
+    const start = () => {if (!running) {running = true; frame = requestAnimationFrame(animate);}};
+    const move = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      if (!active && !running) {currentX = event.clientX; currentY = event.clientY;}
+      targetX = event.clientX; targetY = event.clientY; active = true; start();
+    };
+    const leave = () => {active = false; start();};
+    screen.addEventListener('pointermove', move);
+    screen.addEventListener('pointerleave', leave);
+    return () => {cancelAnimationFrame(frame); screen.removeEventListener('pointermove', move); screen.removeEventListener('pointerleave', leave);};
+  }, []);
 
   useEffect(() => {
     if (phase !== 'hook' && phase !== 'question') return;
@@ -55,7 +121,7 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
         clearInterval(timer);
         hold = setTimeout(() => setPhase(next), phase === 'hook' ? 1100 : 1350);
       }
-    }, phase === 'hook' ? 41 : 36);
+    }, (phase === 'hook' ? 41 : 36) + 1500 / copy.length);
     return () => {clearInterval(timer); if (hold) clearTimeout(hold);};
   }, [phase]);
 
@@ -78,20 +144,7 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
     setPhase(window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'final' : 'hook');
   };
 
-  const moveField = (event: React.PointerEvent<HTMLElement>) => {
-    if (event.pointerType === 'touch') return;
-    const screen = event.currentTarget;
-    const bounds = screen.getBoundingClientRect();
-    const x = event.clientX - bounds.left;
-    const y = event.clientY - bounds.top;
-    screen.style.setProperty('--field-x', `${x}px`);
-    screen.style.setProperty('--field-y', `${y}px`);
-    screen.style.setProperty('--mesh-field-x', `${x + bounds.width * .04}px`);
-    screen.style.setProperty('--mesh-field-y', `${y + bounds.height * .04}px`);
-    screen.dataset.fieldActive = 'true';
-  };
-
-  return <main className={`launch-screen launch-${phase}`} onClick={onEnter} onPointerMove={moveField} onPointerLeave={event => {event.currentTarget.dataset.fieldActive = 'false';}} aria-label="GraceGrid launch page">
+  return <main ref={screenRef} className={`launch-screen launch-${phase}`} onClick={onEnter} aria-label="GraceGrid launch page">
     <Mesh/>
     <Mesh glow/>
     <div className="launch-field-aura" aria-hidden="true"/>
