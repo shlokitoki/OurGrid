@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useState} from 'react';
+import {memo, useEffect, useState} from 'react';
 import {ArrowRight, Play, RotateCcw, Zap} from 'lucide-react';
 
 type Phase = 'idle' | 'hook' | 'question' | 'benefits' | 'final';
@@ -21,18 +21,20 @@ const meshPoint = (row: number, col: number) => ({
   y: Math.round(row * 88 - 36 + Math.cos(col * 0.7 + row * 0.37) * 15),
 });
 
-function Mesh() {
-  const horizontal = Array.from({length: 13}, (_, row) =>
+const horizontal = Array.from({length: 13}, (_, row) =>
     Array.from({length: 18}, (_, col) => meshPoint(row, col)).map(({x, y}) => `${x},${y}`).join(' ')
-  );
-  const vertical = Array.from({length: 18}, (_, col) =>
+);
+const vertical = Array.from({length: 18}, (_, col) =>
     Array.from({length: 13}, (_, row) => meshPoint(row, col)).map(({x, y}) => `${x},${y}`).join(' ')
-  );
-  return <svg className="launch-mesh" viewBox="0 0 1536 1056" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+);
+const nodes = Array.from({length: 13}, (_, row) => Array.from({length: 18}, (_, col) => ({...meshPoint(row, col), key: `${row}-${col}`, radius: (row + col) % 5 === 0 ? 2.2 : 1.25}))).flat();
+
+const Mesh = memo(function Mesh({glow = false}: {glow?: boolean}) {
+  return <svg className={glow ? 'launch-mesh launch-mesh-glow' : 'launch-mesh'} viewBox="0 0 1536 1056" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
     <g className="launch-mesh-lines">{horizontal.map((points, i) => <polyline key={`h${i}`} points={points}/>)}{vertical.map((points, i) => <polyline key={`v${i}`} points={points}/>)}</g>
-    <g className="launch-mesh-nodes">{Array.from({length: 13}, (_, row) => Array.from({length: 18}, (_, col) => {const {x, y} = meshPoint(row, col); return <circle key={`${row}-${col}`} cx={x} cy={y} r={(row + col) % 5 === 0 ? 2.2 : 1.25}/>;}))}</g>
+    <g className="launch-mesh-nodes">{nodes.map(({key, x, y, radius}) => <circle key={key} cx={x} cy={y} r={radius}/>)}</g>
   </svg>;
-}
+});
 
 export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
   const [phase, setPhase] = useState<Phase>('idle');
@@ -76,8 +78,23 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
     setPhase(window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'final' : 'hook');
   };
 
-  return <main className={`launch-screen launch-${phase}`} onClick={onEnter} aria-label="GraceGrid launch page">
+  const moveField = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === 'touch') return;
+    const screen = event.currentTarget;
+    const bounds = screen.getBoundingClientRect();
+    const x = event.clientX - bounds.left;
+    const y = event.clientY - bounds.top;
+    screen.style.setProperty('--field-x', `${x}px`);
+    screen.style.setProperty('--field-y', `${y}px`);
+    screen.style.setProperty('--mesh-field-x', `${x + bounds.width * .04}px`);
+    screen.style.setProperty('--mesh-field-y', `${y + bounds.height * .04}px`);
+    screen.dataset.fieldActive = 'true';
+  };
+
+  return <main className={`launch-screen launch-${phase}`} onClick={onEnter} onPointerMove={moveField} onPointerLeave={event => {event.currentTarget.dataset.fieldActive = 'false';}} aria-label="GraceGrid launch page">
     <Mesh/>
+    <Mesh glow/>
+    <div className="launch-field-aura" aria-hidden="true"/>
     <div className="launch-ambient launch-ambient-one" aria-hidden="true"/>
     <div className="launch-ambient launch-ambient-two" aria-hidden="true"/>
     <div className="launch-topline"><div className="launch-topbrand"><span className="launch-topbrand-mark"><Zap size={19} fill="currentColor"/></span><span>GraceGrid <em>AI</em></span></div><span className="launch-topnote"><i/> A neighborhood energy system</span></div>
@@ -105,7 +122,6 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
       </div>}
     </div>
     <div className="launch-bottom">
-      <span className="launch-edition">MUELLER, AUSTIN <span>•</span> 100 FICTIONAL HOMES</span>
       <div className="launch-actions">
         <button className="launch-view" onClick={viewLaunch}>{phase === 'final' ? <RotateCcw size={15}/> : <Play size={15} fill="currentColor"/>}{phase === 'final' ? 'Replay launch' : 'View Launch'}</button>
         <button className="launch-enter" onClick={(event) => {event.stopPropagation(); onEnter();}}>Click anywhere to enter <ArrowRight size={17}/></button>

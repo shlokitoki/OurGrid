@@ -23,7 +23,7 @@ npm run build
 
 ## The demo
 
-The site opens on a light, animated neighborhood mesh. **View Launch** plays a typewriter hook and rhetorical question, then reveals six benefits one by one before fading in the GraceGrid logo at 75% opacity and the closing tagline. Clicking anywhere enters the dashboard; its header can reopen the launch page. Reduced-motion visitors go directly to the final launch frame.
+The site opens on a light, animated energy-field mesh that softly illuminates nearby lines and nodes as the cursor moves. **View Launch** plays a typewriter hook and rhetorical question, then reveals six benefits one by one before fading in the GraceGrid logo at 75% opacity and the closing tagline. Clicking anywhere enters the dashboard; its header can reopen the launch page. Reduced-motion visitors go directly to the final launch frame.
 
 The overview introduces the problem, response, and proof in three compact panels. **Run live demo** plays a paced 13-step, roughly 52-second story: normal load; a 150 kW spike; a zoom to an opted-in EV charger slowing; a second zoom to voluntarily deferred TV/game-console use; safe battery dispatch; a fictional critical-needs home below its no-export floor; a request in the Mueller neighborhood portal; four neighbors approving 0.5 kW each; a separate energy/bill-credit ledger; battery communication loss; recalculation; dispatcher escalation; and a persistent closing message. A segmented motion bar on the 3D model shows the current stage and its elapsed pace. Viewers can pause, resume, replay, or jump between stages.
 
