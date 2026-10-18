@@ -8,6 +8,7 @@ export type Patient = {
 export type Care = {
   place: string; utility: string; disclaimer: string; devices: Record<string, Device>; streets: Record<string, number>;
   outage: {street: string; start: number}; patients: Patient[]; ordinary: {warnings: {id: string; note: string}[]};
+  trees?: 'palm' | 'round'; places?: {cooling: string; depot: string};
   scoring: {efficiency: number; unconfirmed: number; tiers: {red_hours: number; green_hours: number; red_risk: number}; floor_hours: number};
 };
 export type Mode = 'with' | 'without';
@@ -165,7 +166,7 @@ export function numbers(care: Care) {
 }
 
 export function clockLabel(care: Care, time: number, scenario = 'heat') {
-  const day = scenario === 'ordinary' ? 'Ordinary day' : time < 24 ? 'Day before' : 'Heat day';
+  const day = scenario === 'delhi' ? (time < 24 ? 'Delhi · today' : 'Delhi · next day') : scenario === 'ordinary' ? 'Ordinary day' : time < 24 ? 'Day before' : 'Heat day';
   const minutes = Math.round((time % 24) * 60);
   const h = Math.floor(minutes / 60) % 24, m = minutes % 60;
   const text = `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
@@ -195,3 +196,11 @@ export function ordinaryState(care: Care, p: Patient, time: number): PatientStat
   const status: Status = !checked ? 'none' : warning ? (time >= 35.1 + care.ordinary.warnings.indexOf(warning) * 0.08 ? 'scheduled' : 'warning') : 'confirmed';
   return {hours, tier: warning && checked ? 'red' : hours >= 12 ? 'green' : 'amber', status, countdown: null, full, dark: false, moved: false, note: warning?.note};
 }
+
+// India (Delhi): daily power cuts, home inverter batteries, WhatsApp check-ins in Hindi, home-care nurses and sponsors.
+export const DELHI_BEATS: Beat[] = [
+  {key: 'd-rank', caption: 'Same score, adapted for daily power cuts, WhatsApp and local nurses.', seconds: 8, from: 16, to: 16.4},
+  {key: 'd-whatsapp', caption: 'Check-ins go out on WhatsApp and calls, in Hindi.', seconds: 8, from: 16.4, to: 18.9},
+  {key: 'd-nurse', caption: 'No reply? A home-care nurse visits.', seconds: 7, from: 18.9, to: 20.9},
+  {key: 'd-sponsor', caption: 'A corporate sponsor funds batteries for the riskiest homes.', seconds: 7, from: 32.3, to: 35.2},
+];

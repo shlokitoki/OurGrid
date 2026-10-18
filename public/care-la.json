@@ -293,6 +293,11 @@
    "group": "low"
   }
  ],
+ "trees": "palm",
+ "places": {
+  "cooling": "Cooling center",
+  "depot": "Agency depot"
+ },
  "ordinary": {
   "warnings": [
    {

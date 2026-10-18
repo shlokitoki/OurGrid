@@ -212,10 +212,11 @@ function build(node: HTMLDivElement, map: CareMap, care: Care, plan: Timeline, l
     }
   }
   const dummy = new THREE.Object3D();
+  const round = care.trees === 'round';
   const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.22, 0.38, 1, 6), new THREE.MeshStandardMaterial({color: '#a08c6c'}), palmPoints.length);
-  const crowns = new THREE.InstancedMesh(palmCrown(), new THREE.MeshStandardMaterial({color: '#6f8f4e', side: THREE.DoubleSide}), palmPoints.length);
+  const crowns = new THREE.InstancedMesh(round ? new THREE.IcosahedronGeometry(3.2, 1) : palmCrown(), new THREE.MeshStandardMaterial({color: round ? '#7f9b62' : '#6f8f4e', side: THREE.DoubleSide}), palmPoints.length);
   palmPoints.forEach((p, i) => {
-    const h = 10 + random() * 5;
+    const h = round ? 4 + random() * 2 : 10 + random() * 5;
     dummy.position.set(p.x, h / 2, p.z); dummy.scale.set(1, h, 1); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix);
     dummy.position.set(p.x, h, p.z); dummy.scale.setScalar(0.85 + random() * 0.3); dummy.rotation.set(0, random() * Math.PI, 0); dummy.updateMatrix(); crowns.setMatrixAt(i, dummy.matrix);
   });
@@ -299,7 +300,7 @@ function build(node: HTMLDivElement, map: CareMap, care: Care, plan: Timeline, l
       labelScenes[mode].add(object);
       pins[mode][p.id] = {object, el, key: ''};
     }
-    for (const [text, where, cls] of [['Cooling center', coolingPoint, 'cooling'], ['Agency depot', depotPoint, 'depot']] as const) {
+    for (const [text, where, cls] of [[care.places?.cooling ?? 'Cooling center', coolingPoint, 'cooling'], [care.places?.depot ?? 'Agency depot', depotPoint, 'depot']] as const) {
       const anchor = document.createElement('div');
       anchor.innerHTML = `<div class="cg-place ${cls}">${text}</div>`;
       const object = new CSS2DObject(anchor);
@@ -367,7 +368,7 @@ function build(node: HTMLDivElement, map: CareMap, care: Care, plan: Timeline, l
     if (outageOn !== riskOutage) {riskOutage = outageOn; paintRisk(outageOn);}
     riskMat.opacity = v.risk;
     for (const trip of trips) {
-      const showTrip = v.scenario === 'heat' && mode === 'with' && v.time >= trip.depart && v.time <= trip.arrive + 0.35;
+      const showTrip = v.scenario !== 'ordinary' && mode === 'with' && v.time >= trip.depart && v.time <= trip.arrive + 0.35;
       trip.mesh.visible = showTrip;
       if (showTrip) place(trip, Math.min(1, (v.time - trip.depart) / (trip.arrive - trip.depart)));
     }
@@ -387,8 +388,8 @@ function build(node: HTMLDivElement, map: CareMap, care: Care, plan: Timeline, l
       pin.el.className = `cg-pin ${s.tier} ${status} ${v.selected === p.id ? 'selected' : ''}`;
       const icon = status === 'delivered' || status === 'swapped' ? STATUS_ICONS.confirmed : STATUS_ICONS[status] ?? '';
       pin.el.innerHTML = `${ring !== null ? `<svg class="cg-ring" viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><circle class="left" cx="24" cy="24" r="21" style="stroke-dasharray:${(ring * RING).toFixed(1)} ${RING.toFixed(1)}"/></svg>` : ''}`
-        + `<span class="cg-device">${DEVICE_ICONS[p.device]}</span><span class="cg-age">${p.age >= 75 ? '75+' : p.age}</span><b class="cg-hours">${label}</b>`
-        + (status ? `<i class="cg-status ${status}">${icon}${status === 'calling' ? '<em>Care coordinator calling</em>' : status === 'ambulance' ? '<em>911</em>' : status === 'tanks' ? '<em>O₂ tanks</em>' : status === 'sent' ? '<em>Check-in sent</em>' : status === 'warning' ? `<em>${s.note}</em>` : status === 'scheduled' ? '<em>Replacement scheduled</em>' : ''}</i>` : '');
+        + `<span class="cg-device">${DEVICE_ICONS[p.device]}</span><span class="cg-age">${p.age >= 75 ? '75+' : p.age >= 60 ? '60+' : p.age}</span><b class="cg-hours">${label}</b>`
+        + (status ? `<i class="cg-status ${status}">${icon}${status === 'calling' ? (v.scenario === 'delhi' ? '<em>Home-care nurse visiting</em>' : '<em>Care coordinator calling</em>') : status === 'ambulance' ? '<em>911</em>' : status === 'tanks' ? '<em>O₂ tanks</em>' : status === 'sent' ? (v.scenario === 'delhi' ? '<em>WhatsApp · हिंदी</em>' : '<em>Check-in sent</em>') : status === 'warning' ? `<em>${s.note}</em>` : status === 'scheduled' ? '<em>Replacement scheduled</em>' : ''}</i>` : '');
     }
   };
 
