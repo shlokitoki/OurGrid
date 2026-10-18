@@ -14,10 +14,7 @@ type Compare = Mode | 'compare';
 
 const easeInOut = (p: number) => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
 
-export default function StreetDemo() {
-  const [map, setMap] = useState<StreetMap | null>(null);
-  const [model, setModel] = useState<Model | null>(null);
-  const [error, setError] = useState(false);
+export default function StreetDemo({map, model, run}: {map: StreetMap; model: Model; run: number}) {
   const [scenario] = useState('heat_wave');
   const [beat, setBeat] = useState(IDLE);       // IDLE, a beat index, or HEAT_BEATS.length once you're exploring
   const [playing, setPlaying] = useState(false);
@@ -30,13 +27,6 @@ export default function StreetDemo() {
   beatRef.current = beat;
   const beats = HEAT_BEATS;
   const exploring = beat >= beats.length;
-
-  useEffect(() => {
-    Promise.all([fetch('/burbank.json'), fetch('/scenarios.json')])
-      .then(rs => Promise.all(rs.map(r => {if (!r.ok) throw Error('load failed'); return r.json();})))
-      .then(([m, s]) => {setMap(m); setModel(s);})
-      .catch(() => setError(true));
-  }, []);
 
   useEffect(() => {
     if (!playing) return;
@@ -61,15 +51,13 @@ export default function StreetDemo() {
   }, [playing, beats]);
 
   const start = () => {elapsed.current = 0; setHome(null); setChartFor('B'); setSplit(0.5); setBeat(0); setPlaying(true);};
+  useEffect(() => {if (run > 0) start();}, [run]); // eslint-disable-line react-hooks/exhaustive-deps
   const togglePlay = () => {
     if (playing) setPlaying(false);
     else if (beat === IDLE || exploring) start();
     else setPlaying(true);
   };
   const explore = () => {setPlaying(false); setBeat(beats.length);};
-
-  if (error) return <div className="sg-demo sg-error">The demo could not load. Please refresh to try again.</div>;
-  if (!map || !model) return <div className="sg-demo"><div className="sg-stage"><div className="sg-loading"><span className="loader"/>Loading the Burbank block…</div></div></div>;
 
   const s = model.scenarios[scenario];
   const current = beat >= 0 && beat < beats.length ? beats[beat] : null;

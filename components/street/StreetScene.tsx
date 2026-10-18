@@ -418,11 +418,12 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
   const focusCentroid = (id: string | null) => id ? centroid(map.transformers.find(t => t.id === id)!.homes) : new THREE.Vector3();
   let azimuth = 0.72, lastTime = performance.now();
   const target = new THREE.Vector3(), goalTarget = new THREE.Vector3();
-  let goalRadius = 620, goalZoom = 1, goalPolar = 0.95, lastShot: Shot | null = null;
+  let goalRadius = 620, goalZoom = 1, goalPolar = 0.95, goalShift = 0, shift = 0, lastShot: Shot | null = null;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const setShot = (s: Shot, v: View) => {
     const focus = focusCentroid(v.focus ?? 'B');
     const scenario = model.scenarios[v.scenario];
+    goalShift = s === 'hero' ? -0.38 : 0; // the hero keeps the street to the right of the headline
     if (s === 'hero') {goalTarget.set(0, 0, 0); goalZoom = 1.2; goalPolar = 0.98;}
     else if (s === 'wide') {goalTarget.set(0, 0, 0); goalZoom = 1.05; goalPolar = 0.95;}
     else if (s === 'focus') {goalTarget.copy(focus); goalZoom = 1.9; goalPolar = 0.9;}
@@ -460,12 +461,15 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
   renderer.domElement.addEventListener('pointerup', onUp);
   renderer.domElement.addEventListener('pointermove', onMove);
 
-  let width = 0, height = 0;
+  let width = 0, height = 0, halfW = 125;
+  const frame3d = () => {Object.assign(camera, {left: -halfW - shift * halfW, right: halfW - shift * halfW});};
   const resize = () => {
     width = node.clientWidth; height = node.clientHeight;
     if (!width || !height) return;
     const halfH = 125;
-    Object.assign(camera, {left: -halfH * width / height, right: halfH * width / height, top: halfH, bottom: -halfH});
+    halfW = halfH * width / height;
+    Object.assign(camera, {top: halfH, bottom: -halfH});
+    frame3d();
     camera.updateProjectionMatrix();
     renderer.setSize(width, height);
     layers.without.setSize(width, height);
@@ -474,6 +478,9 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
   resize();
   const observer = new ResizeObserver(resize);
   observer.observe(node);
+  let visible = true;
+  const seen = new IntersectionObserver(entries => {visible = entries.some(e => e.isIntersecting);});
+  seen.observe(node);
 
   const hot = (v: number) => v >= 100 ? 'red' : v >= 90 ? 'yellow' : 'green';
   let lastSkyTime = -1;
@@ -607,6 +614,7 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
   let frame = 0;
   const animate = (now: number) => {
     frame = requestAnimationFrame(animate);
+    if (!visible || document.hidden) {lastTime = now; return;}
     const {view: v, shot: s} = latest.current;
     const dt = Math.min(0.1, (now - lastTime) / 1000);
     lastTime = now;
@@ -637,6 +645,8 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
         target.z + goalRadius * Math.sin(goalPolar) * Math.cos(azimuth));
       camera.position.lerp(desired, ease);
       camera.zoom += (goalZoom - camera.zoom) * ease;
+      shift += (goalShift - shift) * ease;
+      frame3d();
       camera.updateProjectionMatrix();
       camera.lookAt(target);
       controls.target.copy(target);
@@ -683,6 +693,7 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
     dispose: () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      seen.disconnect();
       controls.dispose();
       renderer.domElement.removeEventListener('pointerdown', onDown);
       renderer.domElement.removeEventListener('pointerup', onUp);

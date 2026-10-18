@@ -1,4 +1,4 @@
-.sg-demo{--sg-green:#2e7655;--sg-cool:#3d8fd6;--sg-warm:#d9862c;--sg-red:#c25a4b;--sg-yellow:#d9a43a;display:flex;flex-direction:column;gap:12px;color:var(--ink,#263c34)}
+.sg-demo{scroll-margin-top:72px;--sg-green:#2e7655;--sg-cool:#3d8fd6;--sg-warm:#d9862c;--sg-red:#c25a4b;--sg-yellow:#d9a43a;display:flex;flex-direction:column;gap:12px;color:var(--ink,#263c34)}
 .sg-error{padding:40px;text-align:center;color:#8a6b5f}
 .sg-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .sg-scenarios,.sg-compare{display:flex;gap:4px;background:#eef2ec;border-radius:10px;padding:4px}

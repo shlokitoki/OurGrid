@@ -17,7 +17,6 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #92b5
 .og-brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:800 18px/1 Manrope,var(--font);letter-spacing:-.8px;color:#244c3a}
 .og-mark{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:var(--green);color:#fff;box-shadow:0 6px 14px #2e765527}
 .og-link{border:0;background:transparent;color:#4f6a5b;font-weight:600;font-size:13px;padding:8px 4px;text-decoration:underline;text-decoration-color:#b9c9be;text-underline-offset:4px}
-.og-main{max-width:1240px;margin:0 auto;padding:24px clamp(16px,4vw,48px) 64px}
 
 .og-modal-backdrop{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;background:#1d352a59}
 .og-modal{position:relative;width:min(640px,100%);max-height:calc(100vh - 40px);overflow:auto;padding:28px 30px;border-radius:16px;background:#fff;box-shadow:0 30px 80px #10261a40;font-size:13.5px;line-height:1.6;color:#3d5246;outline:none}
