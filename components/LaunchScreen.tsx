@@ -1,6 +1,6 @@
 'use client';
 
-import {memo, useEffect, useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {ArrowRight, Play, RotateCcw, Zap} from 'lucide-react';
 
 type Phase = 'idle' | 'hook' | 'benefits' | 'final';
@@ -17,6 +17,9 @@ const BENEFITS = [
 
 const ROWS = 18;
 const COLS = 26;
+const VIEW_W = 1536;
+const VIEW_H = 1056;
+const GLOW_RADIUS = 260;
 const meshPoints = Array.from({length: ROWS}, (_, row) =>
   Array.from({length: COLS}, (_, col) => ({
     x: Math.round(col * 64 - 34 + Math.sin(row * .77 + col * .46) * 12),
@@ -25,73 +28,111 @@ const meshPoints = Array.from({length: ROWS}, (_, row) =>
 );
 const nodeSites = meshPoints.flatMap((row, r) => row.flatMap((_, c) => (r + c) % 3 === 0 ? [{row: r, col: c, radius: (r + c) % 6 === 0 ? 2.35 : 1.5}] : []));
 type MeshPoint = {x: number; y: number};
-const pointText = (point: MeshPoint) => `${Math.round(point.x * 10) / 10},${Math.round(point.y * 10) / 10}`;
-const linePath = (points: MeshPoint[][]) => [
-  ...points.map(row => `M${row.map(pointText).join('L')}`),
-  ...Array.from({length: COLS}, (_, col) => `M${points.map(row => pointText(row[col])).join('L')}`),
-].join('');
-const nodePath = (points: MeshPoint[][]) => nodeSites.map(({row, col, radius}) => {
-  const {x, y} = points[row][col];
-  return `M${Math.round((x - radius) * 10) / 10},${Math.round(y * 10) / 10}a${radius},${radius} 0 1,0 ${radius * 2},0a${radius},${radius} 0 1,0 -${radius * 2},0`;
-}).join('');
-const initialLines = linePath(meshPoints);
-const initialNodes = nodePath(meshPoints);
-
-const Mesh = memo(function Mesh({glow = false}: {glow?: boolean}) {
-  return <svg className={glow ? 'launch-mesh launch-mesh-glow' : 'launch-mesh'} viewBox="0 0 1536 1056" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <path className="launch-mesh-lines" d={initialLines}/>
-    <path className="launch-mesh-nodes" d={initialNodes}/>
-  </svg>;
-});
 
 export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [typed, setTyped] = useState('');
   const [benefit, setBenefit] = useState(0);
   const screenRef = useRef<HTMLElement>(null);
+  const baseRef = useRef<HTMLCanvasElement>(null);
+  const glowRef = useRef<HTMLCanvasElement>(null);
+  const auraRef = useRef<HTMLDivElement>(null);
 
+  // The grid and its cursor glow are drawn on two canvases. The earlier SVG
+  // version rewrote full-screen paths every frame under a moving CSS mask,
+  // drop-shadow filters and a drift animation, which flickered in Chrome.
   useEffect(() => {
-    const screen = screenRef.current;
-    const base = screen?.querySelector<SVGSVGElement>('.launch-mesh:not(.launch-mesh-glow)');
-    const glow = screen?.querySelector<SVGSVGElement>('.launch-mesh-glow');
-    if (!screen || !base || !glow || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const paths = [base, glow].map(svg => ({lines: svg.querySelector<SVGPathElement>('.launch-mesh-lines')!, nodes: svg.querySelector<SVGPathElement>('.launch-mesh-nodes')!}));
+    const screen = screenRef.current, base = baseRef.current, glow = glowRef.current, aura = auraRef.current;
+    const baseCtx = base?.getContext('2d'), glowCtx = glow?.getContext('2d');
+    if (!screen || !base || !glow || !aura || !baseCtx || !glowCtx) return;
+    let width = 0, height = 0, dpr = 1, scale = 1, offsetX = 0, offsetY = 0;
+    const toCanvas = (point: MeshPoint) => [offsetX + point.x * scale, offsetY + point.y * scale] as const;
+    const drawBase = (points: MeshPoint[][]) => {
+      baseCtx.clearRect(0, 0, width, height);
+      baseCtx.beginPath();
+      for (const row of points) row.forEach((point, col) => {const [x, y] = toCanvas(point); if (col) baseCtx.lineTo(x, y); else baseCtx.moveTo(x, y);});
+      for (let col = 0; col < COLS; col++) points.forEach((row, r) => {const [x, y] = toCanvas(row[col]); if (r) baseCtx.lineTo(x, y); else baseCtx.moveTo(x, y);});
+      baseCtx.globalAlpha = .34; baseCtx.strokeStyle = '#9fc2aa'; baseCtx.lineWidth = 1.15 * scale; baseCtx.stroke();
+      baseCtx.beginPath();
+      for (const {row, col, radius} of nodeSites) {const [x, y] = toCanvas(points[row][col]); baseCtx.moveTo(x + radius * scale, y); baseCtx.arc(x, y, radius * scale, 0, Math.PI * 2);}
+      baseCtx.globalAlpha = .38; baseCtx.fillStyle = '#78a788'; baseCtx.fill();
+      baseCtx.globalAlpha = 1;
+    };
+    // Only segments near the cursor are drawn, then faded with the same radial falloff the CSS mask used.
+    const drawGlow = (points: MeshPoint[][], cx: number, cy: number, alpha: number) => {
+      glowCtx.clearRect(0, 0, width, height);
+      if (alpha < .002) return;
+      const reach = GLOW_RADIUS + 40;
+      const near = (x: number, y: number) => Math.abs(x - cx) < reach && Math.abs(y - cy) < reach;
+      glowCtx.save();
+      glowCtx.beginPath(); glowCtx.rect(cx - GLOW_RADIUS, cy - GLOW_RADIUS, GLOW_RADIUS * 2, GLOW_RADIUS * 2); glowCtx.clip();
+      glowCtx.beginPath();
+      const segment = (a: MeshPoint, b: MeshPoint) => {const [ax, ay] = toCanvas(a), [bx, by] = toCanvas(b); if (near(ax, ay) || near(bx, by)) {glowCtx.moveTo(ax, ay); glowCtx.lineTo(bx, by);}};
+      for (let r = 0; r < ROWS; r++) for (let c = 1; c < COLS; c++) segment(points[r][c - 1], points[r][c]);
+      for (let c = 0; c < COLS; c++) for (let r = 1; r < ROWS; r++) segment(points[r - 1][c], points[r][c]);
+      glowCtx.globalAlpha = .85; glowCtx.lineCap = 'round'; glowCtx.strokeStyle = '#3eaf71'; glowCtx.lineWidth = 2.4 * scale;
+      glowCtx.shadowColor = '#67d492'; glowCtx.shadowBlur = 5 * scale * dpr; glowCtx.stroke();
+      glowCtx.beginPath();
+      for (const {row, col, radius} of nodeSites) {const [x, y] = toCanvas(points[row][col]); if (near(x, y)) {glowCtx.moveTo(x + radius * scale, y); glowCtx.arc(x, y, radius * scale, 0, Math.PI * 2);}}
+      glowCtx.globalAlpha = 1; glowCtx.fillStyle = '#319b61'; glowCtx.shadowColor = '#4dc47d'; glowCtx.shadowBlur = 7 * scale * dpr; glowCtx.fill();
+      const mask = glowCtx.createRadialGradient(cx, cy, 0, cx, cy, GLOW_RADIUS);
+      mask.addColorStop(0, '#000'); mask.addColorStop(.35, 'rgba(0,0,0,.6)'); mask.addColorStop(.78, 'rgba(0,0,0,0)');
+      glowCtx.shadowBlur = 0; glowCtx.globalCompositeOperation = 'destination-in'; glowCtx.globalAlpha = alpha; glowCtx.fillStyle = mask;
+      glowCtx.fillRect(cx - GLOW_RADIUS, cy - GLOW_RADIUS, GLOW_RADIUS * 2, GLOW_RADIUS * 2);
+      glowCtx.restore();
+    };
     let targetX = 0, targetY = 0, currentX = 0, currentY = 0, strength = 0, active = false, running = false, frame = 0, last = 0;
+    let drawnX = 0, drawnY = 0, drawnStrength = 0, dirty = true;
+    const resize = () => {
+      width = base.offsetWidth; height = base.offsetHeight;
+      if (!width || !height) return;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      for (const canvas of [base, glow]) {canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);}
+      baseCtx.setTransform(dpr, 0, 0, dpr, 0, 0); glowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      scale = Math.max(width / VIEW_W, height / VIEW_H);
+      offsetX = (width - VIEW_W * scale) / 2; offsetY = (height - VIEW_H * scale) / 2;
+      dirty = true;
+      if (!running) drawBase(meshPoints);
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(base);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => observer.disconnect();
     const animate = (time: number) => {
-      if (time - last < 28) {frame = requestAnimationFrame(animate); return;}
+      // Easing was tuned at ~30 updates per second; scale it so any refresh rate looks the same.
+      const step = (last ? Math.min(time - last, 100) : 16.7) / 33.3;
       last = time;
       const beforeX = currentX, beforeY = currentY;
-      currentX += (targetX - currentX) * .19;
-      currentY += (targetY - currentY) * .19;
-      strength += ((active ? 1 : 0) - strength) * .14;
-      const screenRect = screen.getBoundingClientRect();
-      const glowRect = glow.getBoundingClientRect();
-      screen.style.setProperty('--field-x', `${currentX - screenRect.left}px`);
-      screen.style.setProperty('--field-y', `${currentY - screenRect.top}px`);
-      screen.style.setProperty('--mesh-field-x', `${currentX - glowRect.left}px`);
-      screen.style.setProperty('--mesh-field-y', `${currentY - glowRect.top}px`);
-      screen.style.setProperty('--field-glow-opacity', (strength * .82).toFixed(3));
-      screen.style.setProperty('--field-aura-opacity', (strength * .7).toFixed(3));
-      const matrix = base.getScreenCTM();
-      if (matrix) {
-        const cursor = new DOMPoint(currentX, currentY).matrixTransform(matrix.inverse());
-        const velocityX = (currentX - beforeX) * .45, velocityY = (currentY - beforeY) * .45;
+      const follow = 1 - .81 ** step;
+      currentX += (targetX - currentX) * follow;
+      currentY += (targetY - currentY) * follow;
+      strength += ((active ? 1 : 0) - strength) * (1 - .86 ** step);
+      const rect = base.getBoundingClientRect();
+      const localX = (currentX - rect.left) * width / rect.width, localY = (currentY - rect.top) * height / rect.height;
+      // A resting cursor only needs the occasional redraw as the grid drifts.
+      if (dirty || Math.abs(localX - drawnX) + Math.abs(localY - drawnY) > .3 || Math.abs(strength - drawnStrength) > .002) {
+        dirty = false; drawnX = localX; drawnY = localY; drawnStrength = strength;
+        const screenRect = screen.getBoundingClientRect();
+        aura.style.opacity = (strength * .7).toFixed(3);
+        aura.style.transform = `translate3d(${currentX - screenRect.left}px,${currentY - screenRect.top}px,0)`;
+        const cursorX = (localX - offsetX) / scale, cursorY = (localY - offsetY) / scale;
+        const velocityX = (currentX - beforeX) * .45 / step, velocityY = (currentY - beforeY) * .45 / step;
         const warped = meshPoints.map(row => row.map(point => {
-          const dx = cursor.x - point.x, dy = cursor.y - point.y;
+          const dx = cursorX - point.x, dy = cursorY - point.y;
           const distance = Math.hypot(dx, dy);
           const weight = Math.max(0, 1 - distance / 220) ** 2 * strength;
           const pull = 19 * weight / Math.max(distance, 1);
           return {x: point.x + dx * pull - velocityX * weight, y: point.y + dy * pull - velocityY * weight};
         }));
-        const lines = linePath(warped), nodes = nodePath(warped);
-        paths.forEach(path => {path.lines.setAttribute('d', lines); path.nodes.setAttribute('d', nodes);});
+        drawBase(warped);
+        drawGlow(warped, localX, localY, strength * .82);
       }
       if (active || strength > .008 || Math.abs(targetX - currentX) + Math.abs(targetY - currentY) > .5) frame = requestAnimationFrame(animate);
       else {
-        running = false;
-        paths.forEach(path => {path.lines.setAttribute('d', initialLines); path.nodes.setAttribute('d', initialNodes);});
-        screen.style.setProperty('--field-glow-opacity', '0');
-        screen.style.setProperty('--field-aura-opacity', '0');
+        running = false; last = 0; dirty = true;
+        drawBase(meshPoints);
+        glowCtx.clearRect(0, 0, width, height);
+        aura.style.opacity = '0';
       }
     };
     const start = () => {if (!running) {running = true; frame = requestAnimationFrame(animate);}};
@@ -103,7 +144,7 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
     const leave = () => {active = false; start();};
     screen.addEventListener('pointermove', move);
     screen.addEventListener('pointerleave', leave);
-    return () => {cancelAnimationFrame(frame); screen.removeEventListener('pointermove', move); screen.removeEventListener('pointerleave', leave);};
+    return () => {cancelAnimationFrame(frame); observer.disconnect(); screen.removeEventListener('pointermove', move); screen.removeEventListener('pointerleave', leave);};
   }, []);
 
   useEffect(() => {
@@ -137,7 +178,7 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
       index += 1;
       if (index === BENEFITS.length) {clearInterval(timer); setPhase('final');}
       else setBenefit(index);
-    }, 1200);
+    }, 1800);
     return () => clearInterval(timer);
   }, [phase]);
 
@@ -149,9 +190,9 @@ export default function LaunchScreen({onEnter}: {onEnter: () => void}) {
   };
 
   return <main ref={screenRef} className={`launch-screen launch-${phase}`} onClick={onEnter} aria-label="OurGrid launch page">
-    <Mesh/>
-    <Mesh glow/>
-    <div className="launch-field-aura" aria-hidden="true"/>
+    <canvas ref={baseRef} className="launch-mesh" aria-hidden="true"/>
+    <canvas ref={glowRef} className="launch-mesh launch-mesh-glow" aria-hidden="true"/>
+    <div ref={auraRef} className="launch-field-aura" aria-hidden="true"/>
     <div className="launch-ambient launch-ambient-one" aria-hidden="true"/>
     <div className="launch-ambient launch-ambient-two" aria-hidden="true"/>
     <div className="launch-topline"><div className="launch-topbrand"><span className="launch-topbrand-mark"><Zap size={19} fill="currentColor"/></span><span>OurGrid</span></div><span className="launch-topnote"><i/> A neighborhood energy system</span></div>
