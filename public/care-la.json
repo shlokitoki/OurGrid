@@ -1,0 +1,306 @@
+{
+ "place": "North Hollywood, Los Angeles",
+ "utility": "LADWP",
+ "disclaimer": "Illustrative simulation with fictional patients. No real health data.",
+ "devices": {
+  "oxygen": {
+   "label": "Oxygen concentrator",
+   "watts": 350,
+   "criticality": 2
+  },
+  "ventilator": {
+   "label": "Ventilator",
+   "watts": 110,
+   "criticality": 3
+  },
+  "heart_pump": {
+   "label": "Heart pump",
+   "watts": 60,
+   "criticality": 3
+  },
+  "dialysis": {
+   "label": "Home dialysis",
+   "watts": 450,
+   "criticality": 2
+  },
+  "bipap": {
+   "label": "BiPAP",
+   "watts": 90,
+   "criticality": 1
+  }
+ },
+ "streets": {
+  "Klump Avenue": 0.6,
+  "Erwin Street": 0.6,
+  "Fair Avenue": 0.3,
+  "Sylvan Street": 0.3,
+  "Elmer Avenue": 0.3,
+  "Debby Street": 0.1,
+  "Bonner Avenue": 0.1,
+  "Fulcher Avenue": 0.1,
+  "Delano Street": 0.1
+ },
+ "outage": {
+  "street": "Klump Avenue",
+  "start": 42.166666666666664
+ },
+ "patients": [
+  {
+   "id": "P01",
+   "home": 175,
+   "risk": 0.6,
+   "age": 81,
+   "device": "oxygen",
+   "backup_wh": 0,
+   "backup": "none",
+   "street": "Klump Avenue",
+   "responds": true,
+   "delivery": 2000,
+   "ladder": "swap",
+   "group": "outage"
+  },
+  {
+   "id": "P02",
+   "home": 39,
+   "risk": 0.6,
+   "age": 77,
+   "device": "dialysis",
+   "backup_wh": 1000,
+   "backup": "uncharged",
+   "street": "Klump Avenue",
+   "responds": true,
+   "delivery": 2000,
+   "ladder": "move",
+   "group": "outage"
+  },
+  {
+   "id": "P03",
+   "home": 23,
+   "risk": 0.6,
+   "age": 84,
+   "device": "oxygen",
+   "backup_wh": 1000,
+   "backup": "charged",
+   "street": "Klump Avenue",
+   "responds": true,
+   "delivery": 1000,
+   "ladder": "cylinders",
+   "group": "outage"
+  },
+  {
+   "id": "P04",
+   "home": 112,
+   "risk": 0.6,
+   "age": 79,
+   "device": "ventilator",
+   "backup_wh": 1000,
+   "backup": "old",
+   "street": "Erwin Street",
+   "responds": true,
+   "swap": 1000,
+   "group": "high"
+  },
+  {
+   "id": "P05",
+   "home": 89,
+   "risk": 0.6,
+   "age": 88,
+   "device": "heart_pump",
+   "backup_wh": 500,
+   "backup": "unconfirmed",
+   "street": "Erwin Street",
+   "responds": true,
+   "group": "high"
+  },
+  {
+   "id": "P06",
+   "home": 14,
+   "risk": 0.6,
+   "age": 76,
+   "device": "bipap",
+   "backup_wh": 1500,
+   "backup": "unconfirmed",
+   "street": "Klump Avenue",
+   "responds": false,
+   "group": "outage"
+  },
+  {
+   "id": "P07",
+   "home": 126,
+   "risk": 0.6,
+   "age": 82,
+   "device": "bipap",
+   "backup_wh": 1500,
+   "backup": "unconfirmed",
+   "street": "Erwin Street",
+   "responds": false,
+   "group": "high"
+  },
+  {
+   "id": "P08",
+   "home": 209,
+   "risk": 0.3,
+   "age": 75,
+   "device": "oxygen",
+   "backup_wh": 6000,
+   "backup": "unconfirmed",
+   "street": "Sylvan Street",
+   "responds": true,
+   "group": "mid"
+  },
+  {
+   "id": "P09",
+   "home": 108,
+   "risk": 0.3,
+   "age": 90,
+   "device": "ventilator",
+   "backup_wh": 2000,
+   "backup": "unconfirmed",
+   "street": "Sylvan Street",
+   "responds": true,
+   "group": "mid"
+  },
+  {
+   "id": "P10",
+   "home": 87,
+   "risk": 0.3,
+   "age": 78,
+   "device": "heart_pump",
+   "backup_wh": 900,
+   "backup": "unconfirmed",
+   "street": "Fair Avenue",
+   "responds": true,
+   "group": "mid"
+  },
+  {
+   "id": "P11",
+   "home": 223,
+   "risk": 0.1,
+   "age": 83,
+   "device": "bipap",
+   "backup_wh": 1500,
+   "backup": "unconfirmed",
+   "street": "Fulcher Avenue",
+   "responds": true,
+   "group": "low"
+  },
+  {
+   "id": "P12",
+   "home": 37,
+   "risk": 0.1,
+   "age": 80,
+   "device": "oxygen",
+   "backup_wh": 3000,
+   "backup": "charged",
+   "street": "Debby Street",
+   "responds": true,
+   "group": "low"
+  },
+  {
+   "id": "P13",
+   "home": 179,
+   "risk": 0.6,
+   "age": 86,
+   "device": "bipap",
+   "backup_wh": 3000,
+   "backup": "charged",
+   "street": "Klump Avenue",
+   "responds": true,
+   "group": "outage"
+  },
+  {
+   "id": "P14",
+   "home": 140,
+   "risk": 0.6,
+   "age": 77,
+   "device": "heart_pump",
+   "backup_wh": 2000,
+   "backup": "charged",
+   "street": "Erwin Street",
+   "responds": true,
+   "group": "high"
+  },
+  {
+   "id": "P15",
+   "home": 12,
+   "risk": 0.3,
+   "age": 79,
+   "device": "ventilator",
+   "backup_wh": 4000,
+   "backup": "charged",
+   "street": "Fair Avenue",
+   "responds": true,
+   "group": "mid"
+  },
+  {
+   "id": "P16",
+   "home": 266,
+   "risk": 0.3,
+   "age": 92,
+   "device": "bipap",
+   "backup_wh": 2000,
+   "backup": "charged",
+   "street": "Elmer Avenue",
+   "responds": true,
+   "group": "mid"
+  },
+  {
+   "id": "P17",
+   "home": 116,
+   "risk": 0.1,
+   "age": 76,
+   "device": "heart_pump",
+   "backup_wh": 1500,
+   "backup": "charged",
+   "street": "Bonner Avenue",
+   "responds": true,
+   "group": "low"
+  },
+  {
+   "id": "P18",
+   "home": 110,
+   "risk": 0.1,
+   "age": 85,
+   "device": "oxygen",
+   "backup_wh": 10000,
+   "backup": "charged",
+   "street": "Bonner Avenue",
+   "responds": true,
+   "group": "low"
+  },
+  {
+   "id": "P19",
+   "home": 191,
+   "risk": 0.1,
+   "age": 81,
+   "device": "ventilator",
+   "backup_wh": 3000,
+   "backup": "charged",
+   "street": "Bonner Avenue",
+   "responds": true,
+   "group": "low"
+  },
+  {
+   "id": "P20",
+   "home": 249,
+   "risk": 0.1,
+   "age": 78,
+   "device": "bipap",
+   "backup_wh": 2500,
+   "backup": "charged",
+   "street": "Bonner Avenue",
+   "responds": true,
+   "group": "low"
+  }
+ ],
+ "scoring": {
+  "efficiency": 0.85,
+  "unconfirmed": 0.5,
+  "tiers": {
+   "red_hours": 4,
+   "green_hours": 12,
+   "red_risk": 0.6
+  },
+  "floor_hours": 0.5
+ }
+}
