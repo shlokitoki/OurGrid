@@ -158,6 +158,7 @@ def main():
     care = dict(
         place='North Hollywood, Los Angeles', utility='LADWP', disclaimer='Illustrative simulation with fictional patients. No real health data.',
         devices=DEVICES, streets=street_risk, outage=dict(street=outage_street, start=42 + 10 / 60), patients=patients,
+        ordinary=dict(warnings=[dict(id='P01', note='No backup on file'), dict(id='P02', note='Not charged in 30 days'), dict(id='P04', note='3 years old'), dict(id='P17', note='3 years old')]),
         scoring=dict(efficiency=0.85, unconfirmed=0.5, tiers=dict(red_hours=4, green_hours=12, red_risk=0.6), floor_hours=0.5),
     )
     (ROOT / 'public' / 'care-la.json').write_text(json.dumps(care, indent=1))

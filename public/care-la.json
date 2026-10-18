@@ -293,6 +293,26 @@
    "group": "low"
   }
  ],
+ "ordinary": {
+  "warnings": [
+   {
+    "id": "P01",
+    "note": "No backup on file"
+   },
+   {
+    "id": "P02",
+    "note": "Not charged in 30 days"
+   },
+   {
+    "id": "P04",
+    "note": "3 years old"
+   },
+   {
+    "id": "P17",
+    "note": "3 years old"
+   }
+  ]
+ },
  "scoring": {
   "efficiency": 0.85,
   "unconfirmed": 0.5,

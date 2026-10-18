@@ -7,7 +7,7 @@ export type Patient = {
 };
 export type Care = {
   place: string; utility: string; disclaimer: string; devices: Record<string, Device>; streets: Record<string, number>;
-  outage: {street: string; start: number}; patients: Patient[];
+  outage: {street: string; start: number}; patients: Patient[]; ordinary: {warnings: {id: string; note: string}[]};
   scoring: {efficiency: number; unconfirmed: number; tiers: {red_hours: number; green_hours: number; red_risk: number}; floor_hours: number};
 };
 export type Mode = 'with' | 'without';
@@ -107,8 +107,8 @@ export function unprotectedHours(care: Care, p: Patient) {
   return hoursFor(care, p, p.backup_wh) * (p.backup === 'old' ? OLD_FACTOR : 1);
 }
 
-export type Status = 'none' | 'sent' | 'confirmed' | 'flagged' | 'calling' | 'delivered' | 'tanks' | 'moved' | 'swapped' | 'ambulance' | 'alert';
-export type PatientState = {hours: number; tier: Tier; status: Status; countdown: number | null; full: number; dark: boolean; moved: boolean};
+export type Status = 'none' | 'sent' | 'confirmed' | 'flagged' | 'calling' | 'delivered' | 'tanks' | 'moved' | 'swapped' | 'ambulance' | 'alert' | 'checking' | 'warning' | 'scheduled';
+export type PatientState = {hours: number; tier: Tier; status: Status; countdown: number | null; full: number; dark: boolean; moved: boolean; note?: string};
 
 export function patientState(care: Care, t: Timeline, p: Patient, mode: Mode, time: number): PatientState {
   const start = care.outage.start;
@@ -164,13 +164,13 @@ export function numbers(care: Care) {
   };
 }
 
-export function clockLabel(care: Care, time: number) {
-  const day = time < 24 ? 'Day before' : 'Heat day';
+export function clockLabel(care: Care, time: number, scenario = 'heat') {
+  const day = scenario === 'ordinary' ? 'Ordinary day' : time < 24 ? 'Day before' : 'Heat day';
   const minutes = Math.round((time % 24) * 60);
   const h = Math.floor(minutes / 60) % 24, m = minutes % 60;
   const text = `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
   const since = time - care.outage.start;
-  return {day, time: text, outage: since >= 0 ? `Outage +${Math.floor(since)} h ${String(Math.round((since % 1) * 60)).padStart(2, '0')} m` : null};
+  return {day, time: text, outage: since >= 0 && scenario === 'heat' ? `Outage +${Math.floor(since)} h ${String(Math.round((since % 1) * 60)).padStart(2, '0')} m` : null};
 }
 
 export function temperature(time: number) {
@@ -178,4 +178,20 @@ export function temperature(time: number) {
   const peak = time < 24 ? 96 : 106;
   const t = hour <= 16 ? peak - 0.5 * (16 - hour) ** 2 : peak - 0.8 * (hour - 16) ** 1.5;
   return Math.round(Math.max(72, t));
+}
+
+// Ordinary day: no heat warning. A sweep checks every backup and schedules replacements.
+export const ORDINARY_BEATS: Beat[] = [
+  {key: 'sweep', caption: 'On ordinary days, OurGrid finds dead batteries before an emergency does.', seconds: 11, from: 34, to: 35},
+  {key: 'scheduled', caption: 'Replacements scheduled. Every emergency plan is up to date.', seconds: 9, from: 35, to: 35.6},
+];
+
+export function ordinaryState(care: Care, p: Patient, time: number): PatientState {
+  const order = [...care.patients].sort((a, b) => a.home - b.home).findIndex(q => q.id === p.id);
+  const checked = time >= 34.05 + order * 0.045;
+  const warning = care.ordinary.warnings.find(w => w.id === p.id);
+  const full = hoursFor(care, p, p.backup === 'none' ? 0 : p.backup_wh);
+  const hours = warning ? full * (warning.note.includes('years') ? OLD_FACTOR : 0) : full;
+  const status: Status = !checked ? 'none' : warning ? (time >= 35.1 + care.ordinary.warnings.indexOf(warning) * 0.08 ? 'scheduled' : 'warning') : 'confirmed';
+  return {hours, tier: warning && checked ? 'red' : hours >= 12 ? 'green' : 'amber', status, countdown: null, full, dark: false, moved: false, note: warning?.note};
 }

@@ -3,10 +3,10 @@ import dynamic from 'next/dynamic';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {Pause, Play, RotateCcw, ThermometerSun} from 'lucide-react';
 import type {CareMap, CareShot, CareView} from './CareScene';
-import {DAY_BEFORE, HEAT_BEATS, LADDER, clockLabel, initialHours, ladderLit, numbers, outageEnd, patientState, priority, temperature, timeline, type Care, type Mode} from './logic';
+import {DAY_BEFORE, HEAT_BEATS, LADDER, ORDINARY_BEATS, clockLabel, initialHours, ladderLit, numbers, ordinaryState, outageEnd, patientState, priority, temperature, timeline, type Care, type Mode} from './logic';
 
 const CareScene = dynamic(() => import('./CareScene'), {ssr: false, loading: () => <div className="sg-loading"><span className="loader"/>Building North Hollywood…</div>});
-const SHOTS: Record<string, CareShot> = {forecast: 'wide', rank: 'wide', checkin: 'wide', escalate: 'wide', backup: 'wide', outage: 'street', ladder: 'street', result: 'street'};
+const SHOTS: Record<string, CareShot> = {forecast: 'wide', rank: 'wide', checkin: 'wide', escalate: 'wide', backup: 'wide', outage: 'street', ladder: 'street', result: 'street', sweep: 'wide', scheduled: 'wide'};
 const IDLE = -1;
 type Compare = Mode | 'compare';
 const easeInOut = (p: number) => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
@@ -14,7 +14,7 @@ const ladderTime = (e: number, keys: [number, number][]) => {
   for (let i = 1; i < keys.length; i++) if (e <= keys[i][0]) return keys[i - 1][1] + (keys[i][1] - keys[i - 1][1]) * easeInOut((e - keys[i - 1][0]) / (keys[i][0] - keys[i - 1][0]));
   return keys[keys.length - 1][1];
 };
-const STATUS_TEXT: Record<string, string> = {sent: 'Check-in sent', confirmed: 'Backup confirmed', flagged: 'Needs a battery', calling: 'Coordinator calling', delivered: 'Battery delivered', swapped: 'Battery swapped', tanks: 'Oxygen tanks', moved: 'At cooling center', ambulance: '911 call', alert: 'Generic alert only'};
+const STATUS_TEXT: Record<string, string> = {sent: 'Check-in sent', confirmed: 'Backup confirmed', scheduled: 'Replacement scheduled', warning: 'Battery warning', flagged: 'Needs a battery', calling: 'Coordinator calling', delivered: 'Battery delivered', swapped: 'Battery swapped', tanks: 'Oxygen tanks', moved: 'At cooling center', ambulance: '911 call', alert: 'Generic alert only'};
 
 export default function CareDemo({map, care, run}: {map: CareMap; care: Care; run: number}) {
   const plan = useMemo(() => timeline(care), [care]);
@@ -24,7 +24,8 @@ export default function CareDemo({map, care, run}: {map: CareMap; care: Care; ru
     return [[0, care.outage.start + 0.45], [5, at('swap') + 0.1], [10, at('cylinders') + 0.1], [16, at('move') + 0.12], [22, at('move') + 1.4]] as [number, number][];
   }, [plan, care]);
   const nums = useMemo(() => numbers(care), [care]);
-  const beats = HEAT_BEATS;
+  const [scenario, setScenario] = useState<'heat' | 'ordinary'>('heat');
+  const beats = scenario === 'ordinary' ? ORDINARY_BEATS : HEAT_BEATS;
   const [beat, setBeat] = useState(IDLE);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(DAY_BEFORE);
@@ -44,7 +45,7 @@ export default function CareDemo({map, care, run}: {map: CareMap; care: Care; ru
       last = now;
       let b = Math.max(0, beatRef.current);
       while (b < beats.length && elapsed.current >= beats[b].seconds) {elapsed.current -= beats[b].seconds; b++;}
-      if (b >= beats.length) {setBeat(beats.length); setPlaying(false); setTime(beats[beats.length - 1].to); setMode('compare'); return;}
+      if (b >= beats.length) {const last = beats[beats.length - 1]; setBeat(beats.length); setPlaying(false); setTime(last.to); setMode(last.split ? 'compare' : 'with'); return;}
       const current = beats[b];
       setBeat(b);
       setMode(current.split ? 'compare' : 'with');
@@ -59,22 +60,26 @@ export default function CareDemo({map, care, run}: {map: CareMap; care: Care; ru
     return () => cancelAnimationFrame(frame);
   }, [playing, beats]);
 
-  const start = () => {elapsed.current = 0; beatRef.current = 0; dragged.current = false; setSelected(null); setSplit(0.5); setMode('with'); setBeat(0); setPlaying(true);};
+  const start = (from = beats[0].from) => {elapsed.current = 0; beatRef.current = 0; dragged.current = false; setSelected(null); setSplit(0.5); setMode('with'); setTime(from); setBeat(0); setPlaying(true);};
+  const choose = (key: 'heat' | 'ordinary') => {setScenario(key); start(key === 'ordinary' ? ORDINARY_BEATS[0].from : HEAT_BEATS[0].from);};
   useEffect(() => {if (run > 0) start();}, [run]); // eslint-disable-line react-hooks/exhaustive-deps
   const explore = () => {setPlaying(false); setBeat(beats.length);};
   const togglePlay = () => {if (playing) setPlaying(false); else if (beat === IDLE || exploring) start(); else setPlaying(true);};
+  void initialHours;
 
   const current = beat >= 0 && beat < beats.length ? beats[beat] : null;
   const viewMode: Mode = mode === 'compare' ? 'with' : mode;
-  const risk = current?.key === 'forecast' ? Math.min(1, elapsed.current / 3) : beat === IDLE ? 0 : 1;
-  const view: CareView = {time, mode: viewMode, beat: current?.key ?? null, split: mode === 'compare' ? split : null, selected, risk};
+  const ordinary = scenario === 'ordinary';
+  const risk = ordinary ? 0 : current?.key === 'forecast' ? Math.min(1, elapsed.current / 3) : beat === IDLE ? 0 : 1;
+  const view: CareView = {time, mode: ordinary ? 'with' : viewMode, beat: current?.key ?? null, split: mode === 'compare' && !ordinary ? split : null, selected, risk, scenario};
   const shot: CareShot = beat === IDLE ? 'wide' : current ? SHOTS[current.key] : 'free';
-  const clock = clockLabel(care, time);
+  const clock = clockLabel(care, time, scenario);
   const lit = ladderLit(plan, care, time);
   const caption = current?.key === 'ladder' ? LADDER[elapsed.current < 5 ? 0 : elapsed.current < 10 ? 1 : elapsed.current < 16 ? 2 : 3].caption : current?.caption;
-  const showLadder = current?.key === 'ladder' || current?.key === 'result' || (exploring && time >= care.outage.start);
-  const showNumbers = exploring || (current?.key === 'result' && elapsed.current > 2.5);
-  const ranked = care.patients.map(p => ({p, s: patientState(care, plan, p, viewMode, time)}))
+  const showLadder = !ordinary && (current?.key === 'ladder' || current?.key === 'result' || (exploring && time >= care.outage.start));
+  const showNumbers = !ordinary && (exploring || (current?.key === 'result' && elapsed.current > 2.5));
+  const plansDone = ordinary && time >= 35.4;
+  const ranked = care.patients.map(p => ({p, s: ordinary ? ordinaryState(care, p, time) : patientState(care, plan, p, viewMode, time)}))
     .filter(r => !r.s.moved || true)
     .sort((a, b) => priority(care, b.p, b.s.countdown ?? b.s.hours) - priority(care, a.p, a.s.countdown ?? a.s.hours));
   const showList = beat !== IDLE && current?.key !== 'forecast';
@@ -92,8 +97,8 @@ export default function CareDemo({map, care, run}: {map: CareMap; care: Care; ru
   return <div className="sg-demo cg-demo">
     <div className="sg-toolbar">
       <div className="sg-scenarios" role="group" aria-label="Scenario">
-        <button className="active" aria-pressed="true">Heat wave <small>Los Angeles</small></button>
-        <button disabled title="Coming soon">Ordinary day</button>
+        <button className={scenario === 'heat' ? 'active' : ''} aria-pressed={scenario === 'heat'} onClick={() => choose('heat')}>Heat wave <small>Los Angeles</small></button>
+        <button className={scenario === 'ordinary' ? 'active' : ''} aria-pressed={scenario === 'ordinary'} onClick={() => choose('ordinary')}>Ordinary day</button>
         <button disabled title="Coming soon">India <small>Delhi</small></button>
       </div>
       <div className="sg-compare" role="group" aria-label="Compare with and without OurGrid">
@@ -104,7 +109,8 @@ export default function CareDemo({map, care, run}: {map: CareMap; care: Care; ru
     <div className="cg-layout">
       <div className={`sg-stage ${beat === IDLE ? 'idle' : ''}`} ref={stage}>
         <CareScene map={map} care={care} plan={plan} view={view} shot={shot} onSelect={id => {setSelected(id); if (id && !exploring && beat !== IDLE) explore();}}/>
-        <div className="sg-clock cg-clock"><b>{clock.day} · {clock.time}</b><span>{time < 24 ? 'Forecast 106°F' : `${temperature(time)}°F`}{clock.outage ? ` · ${clock.outage}` : ''}</span></div>
+        <div className="sg-clock cg-clock"><b>{clock.day} · {clock.time}</b><span>{ordinary ? 'No heat warning' : time < 24 ? 'Forecast 106°F' : `${temperature(time)}°F`}{clock.outage ? ` · ${clock.outage}` : ''}</span></div>
+        {plansDone && <div className="cg-plans">Emergency plans up to date: <b>{care.patients.length}/{care.patients.length}</b></div>}
         {current?.key === 'forecast' && <div className="cg-warning"><ThermometerSun size={20}/><div><b>Heat warning</b><span>Tomorrow 106°F</span></div></div>}
         {caption && <div className="sg-caption" key={caption}><span>{beat + 1} / {beats.length}</span>{caption}</div>}
         {showLadder && viewMode === 'with' && mode !== 'compare' || showLadder && mode === 'compare' ? <ol className="cg-ladder" aria-label="Escalation ladder">
@@ -121,7 +127,7 @@ export default function CareDemo({map, care, run}: {map: CareMap; care: Care; ru
           <div><b>{nums.reached.count} of {nums.reached.of}</b><span>Non-responders reached by a person, within 2 hours</span></div>
           <div><b>{nums.calls911.without} → {nums.calls911.with}</b><span>Patients told to call 911</span></div>
         </div>}
-        {beat === IDLE && <button className="sg-run" onClick={start}><Play size={16} fill="currentColor"/>Run the demo</button>}
+        {beat === IDLE && <button className="sg-run" onClick={() => start()}><Play size={16} fill="currentColor"/>Run the demo</button>}
       </div>
       <aside className={`cg-panel ${showList ? '' : 'muted'}`} aria-label="Patients ranked by hours of safe power left">
         <h3>Patients, ranked <small>{viewMode === 'with' ? 'with OurGrid' : 'without OurGrid'}</small></h3>
@@ -132,7 +138,7 @@ export default function CareDemo({map, care, run}: {map: CareMap; care: Care; ru
             {showList && <ul>{rows.map(({p, s}) => <li key={p.id} className={selected === p.id ? 'selected' : ''} onClick={() => {setSelected(p.id); if (!exploring) explore();}}>
               <b>{p.id}</b><span>{care.devices[p.device].label} · {p.age}</span>
               <em>{s.moved ? 'safe' : `${(s.countdown ?? s.hours) >= 10 ? Math.round(s.countdown ?? s.hours) : (s.countdown ?? s.hours).toFixed(1)} h`}</em>
-              {s.status !== 'none' && <i className={`cg-tag ${s.status}`}>{STATUS_TEXT[s.status]}</i>}
+              {s.status !== 'none' && <i className={`cg-tag ${s.status}`}>{s.status === 'warning' ? s.note : ordinary && s.status === 'confirmed' ? 'Backup checked' : STATUS_TEXT[s.status]}</i>}
             </li>)}</ul>}
           </section>;
         })}
@@ -143,9 +149,9 @@ export default function CareDemo({map, care, run}: {map: CareMap; care: Care; ru
       <button className="sg-play" onClick={togglePlay} aria-label={playing ? 'Pause' : exploring ? 'Replay' : 'Play'}>
         {playing ? <Pause size={16} fill="currentColor"/> : exploring ? <RotateCcw size={16}/> : <Play size={16} fill="currentColor"/>}
       </button>
-      <span className="cg-end">Day before</span>
-      <input type="range" min={DAY_BEFORE} max={end} step={0.05} value={time} aria-label="Time" onChange={e => {explore(); setTime(Number(e.target.value));}}/>
-      <span className="cg-end">Outage + 12 h</span>
+      <span className="cg-end">{ordinary ? '10 AM' : 'Day before'}</span>
+      <input type="range" min={ordinary ? 34 : DAY_BEFORE} max={ordinary ? 35.8 : end} step={0.01} value={time} aria-label="Time" onChange={e => {explore(); setTime(Number(e.target.value));}}/>
+      <span className="cg-end">{ordinary ? 'Noon' : 'Outage + 12 h'}</span>
     </div>
     <p className="sg-disclaimer">{care.disclaimer} Map data © OpenStreetMap contributors.</p>
   </div>;

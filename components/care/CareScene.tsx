@@ -4,10 +4,10 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {CSS2DObject, CSS2DRenderer} from 'three/addons/renderers/CSS2DRenderer.js';
 import type {Care, Mode, Timeline, Trip} from './logic';
-import {patientState} from './logic';
+import {ordinaryState, patientState} from './logic';
 
 export type CareMap = {center: number[]; features: {id: number; kind: string; name: string; points: number[][]; center: number[]; buildingType?: string; homeIndex?: number; street?: string}[]; cooling: {id: number; center: number[]}; depot: number[]; place: string; retrieved: string};
-export type CareView = {time: number; mode: Mode; beat: string | null; split: number | null; selected: string | null; risk: number};
+export type CareView = {time: number; mode: Mode; beat: string | null; split: number | null; selected: string | null; risk: number; scenario: string};
 export type CareShot = 'hero' | 'wide' | 'street' | 'free';
 type Props = {map: CareMap; care: Care; plan: Timeline; view: CareView; shot: CareShot; onSelect: (id: string | null) => void};
 
@@ -24,6 +24,8 @@ const STATUS_ICONS: Record<string, string> = {
   calling: '<svg viewBox="0 0 24 24"><path d="M6 3h3l2 5-2 1a11 11 0 0 0 6 6l1-2 5 2v3a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2z"/></svg>',
   flagged: '<svg viewBox="0 0 24 24"><path d="M12 4v10M12 18v1"/></svg>',
   ambulance: '<svg viewBox="0 0 24 24"><path d="M3 16V8h10v8M13 11h4l3 3v2H13"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M8 9v4M6 11h4"/></svg>',
+  warning: '<svg viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/></svg>',
+  scheduled: '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
   tanks: '<svg viewBox="0 0 24 24"><rect x="5" y="7" width="5" height="13" rx="2.5"/><rect x="14" y="7" width="5" height="13" rx="2.5"/><path d="M7.5 4v3M16.5 4v3"/></svg>',
 };
 const RING = 2 * Math.PI * 21;
@@ -355,7 +357,7 @@ function build(node: HTMLDivElement, map: CareMap, care: Care, plan: Timeline, l
   seen.observe(node);
 
   const apply = (mode: Mode, v: CareView) => {
-    const outageOn = v.time >= care.outage.start;
+    const outageOn = v.scenario === 'heat' && v.time >= care.outage.start;
     const k = sky(v.time);
     const darkOutage = outageOn;
     outageMat.color.set(darkOutage ? '#7f8482' : '#fbf8f0');
@@ -365,13 +367,13 @@ function build(node: HTMLDivElement, map: CareMap, care: Care, plan: Timeline, l
     if (outageOn !== riskOutage) {riskOutage = outageOn; paintRisk(outageOn);}
     riskMat.opacity = v.risk;
     for (const trip of trips) {
-      const showTrip = mode === 'with' && v.time >= trip.depart && v.time <= trip.arrive + 0.35;
+      const showTrip = v.scenario === 'heat' && mode === 'with' && v.time >= trip.depart && v.time <= trip.arrive + 0.35;
       trip.mesh.visible = showTrip;
       if (showTrip) place(trip, Math.min(1, (v.time - trip.depart) / (trip.arrive - trip.depart)));
     }
     for (const p of care.patients) {
       const pin = pins[mode][p.id];
-      const s = patientState(care, plan, p, mode, v.time);
+      const s = v.scenario === 'ordinary' ? ordinaryState(care, p, v.time) : patientState(care, plan, p, mode, v.time);
       const show = v.beat !== 'forecast' && v.beat !== null || v.selected !== null || v.beat === null;
       pin.object.visible = show && !s.moved;
       if (!pin.object.visible) continue;
@@ -379,14 +381,14 @@ function build(node: HTMLDivElement, map: CareMap, care: Care, plan: Timeline, l
       const label = hours >= 100 ? '99+ h' : hours >= 10 ? `${Math.round(hours)} h` : `${hours.toFixed(1)} h`;
       const ring = s.countdown !== null && s.full > 0 ? Math.max(0, Math.min(1, s.countdown / s.full)) : null;
       const status = s.status === 'none' ? '' : s.status;
-      const nextKey = `${s.tier}|${label}|${status}|${ring === null ? '' : ring.toFixed(2)}|${v.selected === p.id}`;
+      const nextKey = `${s.tier}|${label}|${status}|${ring === null ? '' : ring.toFixed(2)}|${v.selected === p.id}|${s.note ?? ''}`;
       if (nextKey === pin.key) continue;
       pin.key = nextKey;
       pin.el.className = `cg-pin ${s.tier} ${status} ${v.selected === p.id ? 'selected' : ''}`;
       const icon = status === 'delivered' || status === 'swapped' ? STATUS_ICONS.confirmed : STATUS_ICONS[status] ?? '';
       pin.el.innerHTML = `${ring !== null ? `<svg class="cg-ring" viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><circle class="left" cx="24" cy="24" r="21" style="stroke-dasharray:${(ring * RING).toFixed(1)} ${RING.toFixed(1)}"/></svg>` : ''}`
         + `<span class="cg-device">${DEVICE_ICONS[p.device]}</span><span class="cg-age">${p.age >= 75 ? '75+' : p.age}</span><b class="cg-hours">${label}</b>`
-        + (status ? `<i class="cg-status ${status}">${icon}${status === 'calling' ? '<em>Care coordinator calling</em>' : status === 'ambulance' ? '<em>911</em>' : status === 'tanks' ? '<em>O₂ tanks</em>' : status === 'sent' ? '<em>Check-in sent</em>' : ''}</i>` : '');
+        + (status ? `<i class="cg-status ${status}">${icon}${status === 'calling' ? '<em>Care coordinator calling</em>' : status === 'ambulance' ? '<em>911</em>' : status === 'tanks' ? '<em>O₂ tanks</em>' : status === 'sent' ? '<em>Check-in sent</em>' : status === 'warning' ? `<em>${s.note}</em>` : status === 'scheduled' ? '<em>Replacement scheduled</em>' : ''}</i>` : '');
     }
   };
 

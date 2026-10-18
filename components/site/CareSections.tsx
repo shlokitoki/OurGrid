@@ -7,7 +7,7 @@ import CareDemo from '../care/CareDemo';
 import {timeline, type Care} from '../care/logic';
 
 const CareScene = dynamic(() => import('../care/CareScene'), {ssr: false});
-const HERO_VIEW: CareView = {time: 16, mode: 'with', beat: null, split: null, selected: null, risk: 0};
+const HERO_VIEW: CareView = {time: 16, mode: 'with', beat: null, split: null, selected: null, risk: 0, scenario: 'heat'};
 const ignore = () => {};
 // Contact for pilots. Replace with the team's address before sharing widely.
 const CONTACT = 'mailto:?subject=OurGrid%20pilot';
