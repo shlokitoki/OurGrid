@@ -22,6 +22,11 @@ export type Scenario = {
   failure: Record<string, number | null>;
   share?: {transformer: string; suppliers: number[]; recipient: number; start: number; end: number; kwh: number; credit_usd: number};
   summary?: {transformer: string; peak_without: number; peak_with: number; medical_adjusted: number; homes: number; kept_power_with: number; kept_power_without: number};
+  outage?: {
+    start: number; arrive: number; recipient: number; donor: number; ev_kwh: number; ev_kw: number; islanded: number[];
+    medical: {index: number; hours: number; without: number[]; with: number[]}[];
+    summary: {medical: number; covered_with: number; covered_without: number; recipient_hours: number; recipient_hours_with: number};
+  };
 };
 export type Model = {
   seed: number; hours: number[]; chart_end: number; base_rate: number; disclaimer: string;

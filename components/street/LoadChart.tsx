@@ -29,7 +29,7 @@ export default function LoadChart({model, scenario, transformer, time, beat, mod
     <figcaption>
       <span><b>Transformer {transformer}</b> load, 12 PM to 10 PM</span>
       <span className="sg-legend">
-        <i className="without"/>{forecastOnly || (story && !solidWithout) ? 'Forecast' : 'Without OurGrid'}
+        <i className="without"/>{s.at_risk.length === 0 ? 'Load · no transformer at risk, OurGrid stays idle' : forecastOnly || (story && !solidWithout) ? 'Forecast' : 'Without OurGrid'}
         {showWith && <><i className="with"/>With OurGrid</>}
         <i className="limit"/>Limit
       </span>
@@ -46,8 +46,37 @@ export default function LoadChart({model, scenario, transformer, time, beat, mod
       {showWith && (beat === 'result' || !story) && <g className="peak good">
         <text x={x(hours[withLine.indexOf(peakWith)]) + 8} y={y(peakWith) + 15}>{Math.round(peakWith)}%</text>
       </g>}
-      {(beat === 'result' || (!story && mode === 'without')) && failure && <g className="peak fail"><text x={x(failure)} y={y(MAX) + 10} textAnchor="middle">✕ fails {clock(failure)}</text></g>}
+      {(beat === 'result' || (!story && mode === 'without')) && failure && <g className="peak fail"><text x={x(failure) + 10} y={y(peakWithout) + 16}>✕ fails {clock(failure)}</text></g>}
       {!forecastOnly && <line className="cursor" x1={x(time)} x2={x(time)} y1={T} y2={H - B}/>}
+    </svg>
+  </figure>;
+}
+
+export function BackupChart({model, scenario, time}: {model: Model; scenario: string; time: number}) {
+  const o = model.scenarios[scenario].outage!;
+  const entry = o.medical.find(m => m.index === o.recipient)!;
+  const hours = model.hours.slice(0, model.chart_end + 1);
+  const top = 18;
+  const x = (h: number) => L + (h - START) / (END - START) * (W - L - R);
+  const y = (v: number) => T + (1 - Math.min(v, top) / top) * (H - T - B);
+  const line = (values: number[]) => hours.map((h, i) => `${i ? 'L' : 'M'}${x(h).toFixed(1)},${y(values[i]).toFixed(1)}`).join('');
+  const id = model.homes[o.recipient].id;
+  const empty = o.start + entry.hours;
+  return <figure className="sg-chart">
+    <figcaption>
+      <span><b>Backup left</b> at medical home {id}, in hours</span>
+      <span className="sg-legend"><i className="without"/>Without OurGrid<i className="with"/>With OurGrid</span>
+    </figcaption>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Backup at ${id}: ${entry.hours.toFixed(1)} hours when the grid goes down; a neighbor's EV adds ${Math.round(o.ev_kwh / (model.homes[o.recipient].medical?.essential_kw ?? 1))} hours.`}>
+      {[0, 6, 12, 18].map(v => <g key={v}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} className="grid"/><text x={L - 8} y={y(v) + 3} textAnchor="end">{v}h</text></g>)}
+      {[12, 14, 16, 18, 20, 22].map(h => <text key={h} x={x(h)} y={H - 7} textAnchor="middle">{hourLabel(h)}</text>)}
+      <line x1={x(o.start)} x2={x(o.start)} y1={T} y2={H - B} className="limit"/>
+      <text x={x(o.start) - 6} y={T + 10} textAnchor="end" className="note">Grid down {clock(o.start)}</text>
+      <path d={line(entry.without.slice(0, hours.length))} className="without"/>
+      <path d={line(entry.with.slice(0, hours.length))} className="with"/>
+      {empty < END && <g className="peak fail"><text x={x(empty)} y={y(0) - 8} textAnchor="middle">runs out {clock(empty)}</text></g>}
+      <g className="peak good"><text x={x(o.arrive) + 8} y={y(entry.with[hours.findIndex(h => h >= o.arrive)]) - 6}>EV arrives</text></g>
+      <line className="cursor" x1={x(time)} x2={x(time)} y1={T} y2={H - B}/>
     </svg>
   </figure>;
 }

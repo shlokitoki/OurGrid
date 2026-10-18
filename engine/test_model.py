@@ -95,6 +95,25 @@ class ModelTest(unittest.TestCase):
         self.assertTrue(17.75 < failure < 18.5)
         self.assertTrue(all(v is None for t, v in self.heat['failure'].items() if t != 'B'))
 
+    def test_outage(self):
+        outage = self.doc['scenarios']['outage']
+        o = outage['outage']
+        start = self.hours.index(o['start'])
+        for loads in outage['transformers'].values():
+            self.assertTrue(all(v == 0 for v in loads['with'][start:]))
+            self.assertEqual(loads['with'], loads['without'])
+        hours = {m['index']: m['hours'] for m in o['medical']}
+        self.assertEqual(o['recipient'], min(hours, key=hours.get))
+        self.assertTrue(self.homes[o['donor']]['ev'])
+        self.assertFalse(self.homes[o['donor']]['medical'])
+        self.assertTrue(all(self.homes[i]['battery'] for i in o['islanded']))
+        recipient = next(m for m in o['medical'] if m['index'] == o['recipient'])
+        end = self.doc['chart_end']
+        self.assertEqual(recipient['without'][end], 0)
+        self.assertGreater(recipient['with'][end], 0)
+        self.assertEqual(o['summary']['covered_with'], o['summary']['medical'])
+        self.assertLess(o['summary']['covered_without'], o['summary']['medical'])
+
     def test_reproducible_and_written(self):
         self.assertEqual(json.dumps(model.build(), sort_keys=True), json.dumps(self.doc, sort_keys=True))
         written = json.loads((ROOT / 'public' / 'scenarios.json').read_text())

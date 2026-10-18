@@ -6,7 +6,7 @@ import {CSS2DObject, CSS2DRenderer} from 'three/addons/renderers/CSS2DRenderer.j
 import type {Model, StreetMap} from './types';
 import {COIN_LANDS, failed, gaugeValue, homeState, type Mode, type View} from './story';
 
-export type Shot = 'hero' | 'wide' | 'focus' | 'close' | 'share' | 'result' | 'free';
+export type Shot = 'hero' | 'wide' | 'focus' | 'close' | 'share' | 'route' | 'result' | 'free';
 type Props = {map: StreetMap; model: Model; view: View; shot: Shot; onSelectHome: (index: number | null) => void; onSelectTransformer: (id: string) => void};
 
 const ICONS = {
@@ -14,6 +14,7 @@ const ICONS = {
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
   car: '<svg viewBox="0 0 24 24"><path d="M4 16v-2.5L6 9h12l2 4.5V16z"/><circle cx="7.5" cy="16.5" r="1.7"/><circle cx="16.5" cy="16.5" r="1.7"/></svg>',
   bolt: '<svg viewBox="0 0 24 24"><path d="M13 3 6 13h5l-1 8 7-10h-5z"/></svg>',
+  plug: '<svg viewBox="0 0 24 24"><rect x="3" y="7" width="15" height="10" rx="2"/><path d="M21 10v4"/></svg>',
   medical: '<svg viewBox="0 0 24 24"><path class="shield" d="M12 3 5 6v5c0 4.5 3 8.2 7 10 4-1.8 7-5.5 7-10V6z"/><path class="heart" d="M12 15.6s-3.6-2.2-3.6-4.6a2 2 0 0 1 3.6-1.1 2 2 0 0 1 3.6 1.1c0 2.4-3.6 4.6-3.6 4.6z"/></svg>',
 };
 const RING = 2 * Math.PI * 26, OUTER = 2 * Math.PI * 30.5;
@@ -22,6 +23,7 @@ type Label = {object: CSS2DObject; el: HTMLDivElement; text: string};
 type HomeParts = {
   index: number; transformer: string; body: THREE.Mesh; roof: THREE.Mesh; halo: THREE.Mesh; windows: THREE.MeshBasicMaterial;
   battery?: {box: THREE.Mesh; pulse: THREE.Mesh}; car?: THREE.Group; center: THREE.Vector3; roofY: number;
+  drive: THREE.Vector3; streetX: number; door: THREE.Vector3;
 };
 type Wire = {home: number; transformer: string; curve: THREE.QuadraticBezierCurve3; line: THREE.Mesh};
 type Built = {
@@ -42,7 +44,7 @@ const setClass = (el: HTMLElement, name: string) => {if (el.className !== name) 
 const mix = (a: string, b: string, t: number) => new THREE.Color(a).lerp(new THREE.Color(b), Math.max(0, Math.min(1, t)));
 
 function sky(time: number) {
-  const stops: [number, string][] = [[12, '#eef1ea'], [17, '#efebe1'], [18.75, '#f3dfc4'], [19.75, '#c9ac9c'], [20.5, '#68738a'], [21.25, '#4a5670'], [22, '#414d68']];
+  const stops: [number, string][] = [[12, '#eef1ea'], [17, '#efebe1'], [18.75, '#f3dfc4'], [19.75, '#c9ac9c'], [20.5, '#727d93'], [21.25, '#5d6982'], [22, '#56627c']];
   let color = new THREE.Color(stops[0][1]);
   for (let i = 1; i < stops.length; i++) {
     if (time <= stops[i][0]) {color = mix(stops[i - 1][1], stops[i][1], (time - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0])); break;}
@@ -233,7 +235,11 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
       }
     }
     const modelHome = model.homes[index];
-    const parts: HomeParts = {index, transformer: f.transformer!, body, roof, halo: haloMesh, windows, center: new THREE.Vector3(cx, 0, cz), roofY: height + 1.6};
+    const streetX = f.streetX ?? cx;
+    const toward = Math.sign(streetX - cx) || 1;
+    const nearest = pts.reduce((best, p) => Math.abs(p[0] - streetX) < Math.abs(best[0] - streetX) ? p : best);
+    const parts: HomeParts = {index, transformer: f.transformer!, body, roof, halo: haloMesh, windows, center: new THREE.Vector3(cx, 0, cz), roofY: height + 1.6,
+      drive: new THREE.Vector3(streetX - toward * 8.5, 0, cz + 4.2), streetX, door: new THREE.Vector3(nearest[0], 2.2, cz + 2)};
     if (modelHome.battery) {
       const box = new THREE.Mesh(batteryGeometry, new THREE.MeshStandardMaterial({color: '#5f9a72', roughness: 0.6, emissive: '#2f8a57', emissiveIntensity: 0}));
       box.position.set(cx, height + 1.6, cz);
@@ -252,8 +258,7 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
       cabin.position.set(-0.2, 1.55, 0);
       lower.castShadow = cabin.castShadow = true;
       car.add(lower, cabin);
-      const toward = Math.sign(f.streetX - cx);
-      car.position.set(f.streetX - toward * 8.5, 0, cz + 4.2);
+      car.position.copy(parts.drive);
       scene.add(car);
       parts.car = car;
     }
@@ -374,6 +379,34 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
   coin.visible = false;
   scene.add(coin);
 
+  // Outage: a neighbour's EV is driven to a medical home and plugged in with a short cable.
+  const outage = Object.values(model.scenarios).find(sc => sc.outage)?.outage;
+  const route: THREE.Vector3[] = [];
+  let cable: THREE.Mesh | null = null;
+  const cableFlow = new THREE.InstancedMesh(new THREE.SphereGeometry(0.45, 8, 8), new THREE.MeshBasicMaterial({color: '#3fd08a', toneMapped: false}), 3);
+  cableFlow.visible = false;
+  scene.add(cableFlow);
+  if (outage && homes[outage.donor]?.car && homes[outage.recipient]) {
+    const from = homes[outage.donor], to = homes[outage.recipient];
+    const lane = from.streetX + (to.center.z > from.center.z ? -2.6 : 2.6);
+    route.push(from.drive.clone(), new THREE.Vector3(lane, 0, from.drive.z), new THREE.Vector3(lane, 0, to.drive.z), to.drive.clone().add(new THREE.Vector3(0, 0, -3.2)));
+    const plug = route[3].clone().setY(1.3);
+    const curve = new THREE.QuadraticBezierCurve3(plug, plug.clone().lerp(to.door, 0.5).setY(0.4), to.door);
+    cable = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.12, 5, false), new THREE.MeshBasicMaterial({color: '#2f7a56'}));
+    cable.userData.curve = curve;
+    cable.visible = false;
+    scene.add(cable);
+  }
+  const along = (p: number) => {
+    const lengths = route.slice(1).map((pt, i) => pt.distanceTo(route[i]));
+    let d = p * lengths.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < lengths.length; i++) {
+      if (d <= lengths[i]) return {position: route[i].clone().lerp(route[i + 1], d / lengths[i]), heading: route[i + 1].clone().sub(route[i])};
+      d -= lengths[i];
+    }
+    return {position: route[route.length - 1].clone(), heading: route[route.length - 1].clone().sub(route[route.length - 2])};
+  };
+
   // Sparks when a transformer fails without OurGrid.
   const sparkCount = 70;
   const sparkGeometry = new THREE.BufferGeometry();
@@ -405,7 +438,7 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
       }
       if (model.homes[parts.index].medical) {
         const badge = label('sg-badge sg-medical', ICONS.medical);
-        badge.object.position.set(parts.center.x, parts.roofY + 9.5, parts.center.z);
+        badge.object.position.set(parts.center.x, parts.roofY + 15, parts.center.z);
         labelScenes[mode].add(badge.object);
         medicalBadges[mode][parts.index] = badge;
       }
@@ -432,6 +465,8 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
       goalTarget.copy(ids.length ? centroid(ids) : focus); goalZoom = 2.5; goalPolar = 0.88;
     } else if (s === 'share' && scenario.share) {
       goalTarget.copy(centroid([...scenario.share.suppliers, scenario.share.recipient])); goalZoom = 2.9; goalPolar = 0.86;
+    } else if (s === 'route' && scenario.outage) {
+      goalTarget.copy(centroid([scenario.outage.donor, scenario.outage.recipient])); goalZoom = 2.7; goalPolar = 0.86;
     } else if (s === 'result') {goalTarget.copy(focus); goalZoom = 1.55; goalPolar = 0.92;}
     goalRadius = 620;
   };
@@ -502,6 +537,7 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
       roof.color.set(selected ? '#3f7a5c' : s.dark ? '#565a57' : dimmed ? '#c9c0b0' : '#8d8274');
       if (s.glow === 'cool') {body.emissive.set('#3d8fd6'); body.emissiveIntensity = 0.3; haloMat.color.set('#4f9fe3'); haloMat.opacity = 0.85; if (!selected) roof.color.copy(mix('#8d8274', '#5f9fdc', 0.75));}
       else if (s.glow === 'warm') {body.emissive.set('#e08a2c'); body.emissiveIntensity = 0.26; haloMat.color.set('#f0a142'); haloMat.opacity = 0.8; if (!selected) roof.color.copy(mix('#8d8274', '#e39a45', 0.7));}
+      else if (scenario.outage && v.time >= scenario.outage.start && !s.dark) {body.emissive.set('#f2b84b'); body.emissiveIntensity = 0.35; haloMat.color.set('#ffcf6a'); haloMat.opacity = 0.75;}
       else {body.emissiveIntensity = 0; haloMat.opacity = 0;}
       parts.windows.color.copy(s.dark ? new THREE.Color('#24272c') : mix('#d8d2bf', '#ffc65c', 0.2 + night * 0.8));
       if (parts.battery) {
@@ -514,12 +550,19 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
       }
       const inFocus = parts.transformer === focus || (v.beat === null && v.selectedHome !== null && model.homes[v.selectedHome]?.transformer === parts.transformer);
       const chip = chips[mode][parts.index];
-      const showChip = !!chip && inFocus && v.beat !== 'forecast' && !s.dark && !model.homes[parts.index].medical && (v.beat !== null || scenario.at_risk.length > 0);
-      chip.object.visible = showChip;
-      if (showChip) {
-        const temp = Math.round(s.temp);
-        setClass(chip.el, `sg-chip ${s.glow ?? ''}`);
-        setText(chip, `${temp}${s.glow}`, `${ICONS.thermo}${temp}°F`);
+      if (s.backup !== null && v.beat !== 'out-down') {
+        const hours = s.backup >= 10 ? Math.round(s.backup).toString() : s.backup.toFixed(1);
+        chip.object.visible = true;
+        setClass(chip.el, `sg-chip backup ${s.onEv ? 'ev' : s.backup < 0.75 ? 'low' : ''}`);
+        setText(chip, `b${hours}${s.onEv}`, `${ICONS.plug}${hours} h left`);
+      } else {
+        const showChip = !!chip && inFocus && v.beat !== 'forecast' && !s.dark && !model.homes[parts.index].medical && !scenario.outage && (v.beat !== null || scenario.at_risk.length > 0);
+        chip.object.visible = showChip;
+        if (showChip) {
+          const temp = Math.round(s.temp);
+          setClass(chip.el, `sg-chip ${s.glow ?? ''}`);
+          setText(chip, `${temp}${s.glow}`, `${ICONS.thermo}${temp}°F`);
+        }
       }
       const badge = evBadges[mode][parts.index];
       if (badge) {
@@ -578,6 +621,28 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
       credit.with.object.position.set(recipient.center.x, recipient.roofY + 15, recipient.center.z);
       setText(credit.with, 'credit', `<span class="coin"></span>+${share.kwh.toFixed(1)} kWh at base rate`);
     }
+    // The outage EV: drive, park, plug in.
+    if (route.length) {
+      const car = homes[outage!.donor].car!;
+      const o = scenario.outage;
+      const p = o && mode === 'with' ? Math.max(0, Math.min(1, (v.time - (o.start + 0.12)) / (o.arrive - o.start - 0.12))) : 0;
+      const {position, heading} = along(p);
+      car.position.copy(position);
+      if (p > 0 && p < 1) car.rotation.y = Math.atan2(-heading.z, heading.x);
+      else if (p === 0) car.rotation.y = 0;
+      const plugged = !!o && mode === 'with' && v.time >= o.arrive;
+      cable!.visible = cableFlow.visible = plugged;
+      if (plugged) {
+        const curve = cable!.userData.curve as THREE.QuadraticBezierCurve3;
+        for (let k = 0; k < 3; k++) {
+          dummy.position.copy(curve.getPoint((now * 0.0006 + k / 3) % 1));
+          dummy.scale.setScalar(1);
+          dummy.updateMatrix();
+          cableFlow.setMatrixAt(k, dummy.matrix);
+        }
+        cableFlow.instanceMatrix.needsUpdate = true;
+      }
+    }
     // Gauges.
     for (const t of map.transformers) {
       const g = gauges[mode][t.id];
@@ -627,7 +692,7 @@ function build(node: HTMLDivElement, map: StreetMap, model: Model, latest: {curr
       sun.position.copy(k.direction).multiplyScalar(700);
       sun.intensity = k.sun;
       sun.color.copy(mix('#fffcf3', '#ffbe7d', k.warm));
-      hemi.intensity = 1.5 - k.night * 0.6;
+      hemi.intensity = 1.5 - k.night * 0.45;
       hemi.color.copy(mix('#ffffff', '#8796b8', k.night));
       renderer.toneMappingExposure = 1 - k.night * 0.12;
       renderer.shadowMap.needsUpdate = true;

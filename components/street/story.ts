@@ -13,6 +13,25 @@ export const HEAT_BEATS: Beat[] = [
   {key: 'result', caption: 'Same street. Same heat. The lights stay on.', seconds: 14, from: 17.9, to: 19.75, split: true},
 ];
 
+export const HOT_BEATS: Beat[] = [
+  {key: 'hot-day', caption: '92°F. Every transformer has room.', seconds: 7, from: 12, to: 17.5},
+  {key: 'hot-idle', caption: "OurGrid stays idle: we act only when a transformer's at risk.", seconds: 8, from: 17.5, to: 22},
+];
+
+export const OUTAGE_BEATS: Beat[] = [
+  {key: 'out-down', caption: 'The grid goes down. The whole street goes dark.', seconds: 7, from: 19.3, to: 19.56},
+  {key: 'out-island', caption: 'Home batteries disconnect from the lines and power only their homes.', seconds: 8, from: 19.56, to: 19.62},
+  {key: 'out-route', caption: "A neighbor's EV drives to the medical home with the least backup.", seconds: 8, from: 19.62, to: 19.9},
+  {key: 'out-result', caption: 'In an outage, power travels by battery, not by wire.', seconds: 7, from: 19.9, to: 21.35, split: true},
+];
+
+export const BEATS: Record<string, Beat[]> = {heat_wave: HEAT_BEATS, hot_day: HOT_BEATS, outage: OUTAGE_BEATS};
+export const SCENARIOS = [
+  {key: 'hot_day', label: 'Hot day', note: '92°F'},
+  {key: 'heat_wave', label: 'Heat wave', note: '108°F'},
+  {key: 'outage', label: 'Outage', note: ''},
+];
+
 export const START = 12;
 export const END = 22;
 export const COIN_LANDS = 18.08; // the share's credit lands on the medical home's roof
@@ -50,10 +69,17 @@ export function hourLabel(time: number) {
   return `${((h + 11) % 12) + 1} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
-/** When a transformer has failed in this view (without OurGrid, past its failure time). */
+/** Whether a transformer is down in this view: the street-wide outage, or a failure without OurGrid. */
 export function failed(scenario: Scenario, transformer: string, mode: Mode, time: number) {
+  if (scenario.outage) return time >= scenario.outage.start;
   const at = scenario.failure[transformer];
   return mode === 'without' && at !== null && at !== undefined && time >= at;
+}
+
+/** Where the scenario's story is centred. */
+export function focusOf(model: Model, scenario: Scenario) {
+  if (scenario.outage) return model.homes[scenario.outage.recipient].transformer;
+  return scenario.at_risk[0] ?? null;
 }
 
 export function gaugeValue(model: Model, scenario: Scenario, transformer: string, mode: Mode, time: number, beat: string | null) {
@@ -68,7 +94,7 @@ export function gaugeValue(model: Model, scenario: Scenario, transformer: string
 export type Glow = 'cool' | 'warm' | null;
 export type HomeState = {
   dark: boolean; glow: Glow; temp: number; ev: 'none' | 'moon' | 'charging'; battery: 'idle' | 'cover' | 'share';
-  medical: boolean; credited: boolean;
+  medical: boolean; credited: boolean; backup: number | null; onEv: boolean;
 };
 
 export function homeState(model: Model, scenario: Scenario, index: number, mode: Mode, time: number): HomeState {
@@ -92,5 +118,18 @@ export function homeState(model: Model, scenario: Scenario, index: number, mode:
   }
   const share = scenario.share;
   const credited = mode === 'with' && !!share && share.recipient === index && time >= COIN_LANDS;
-  return {dark, glow, temp: sample(series.t_in[mode], model.hours, time), ev, battery, medical: !!home.medical, credited};
+  const temp = sample(series.t_in[mode], model.hours, time);
+  const outage = scenario.outage;
+  if (outage && time >= outage.start) {
+    // Batteries island to their own homes; medical homes run on backup; one gets a neighbour's EV.
+    const islanded = outage.islanded.includes(index);
+    const onEv = mode === 'with' && index === outage.recipient && time >= outage.arrive;
+    const entry = outage.medical.find(m => m.index === index);
+    // Exact rather than interpolated, so the EV's arrival is a clean step up.
+    const gain = onEv ? outage.ev_kwh / (home.medical?.essential_kw ?? 1) : 0;
+    const backup = entry ? Math.max(0, entry.hours + gain - (time - outage.start)) : null;
+    return {dark: !islanded && !onEv && !(backup !== null && backup > 0), glow: null, temp, ev: 'none', battery: islanded ? 'cover' : 'idle',
+      medical: !!home.medical, credited: false, backup, onEv};
+  }
+  return {dark, glow, temp, ev, battery, medical: !!home.medical, credited, backup: null, onEv: false};
 }

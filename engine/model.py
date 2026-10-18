@@ -40,6 +40,7 @@ SHARE = dict(start=18.0, end=19.0, kw_each=0.75)
 TARGET_PEAK = {'A': 0.93, 'B': 1.18, 'C': 0.95, 'D': 0.88}
 TARGET_WITH = 0.94
 FAILURE = dict(over=1.15, minutes=15)         # an overloaded transformer fails after 15 min above 115%
+OUTAGE = dict(start=19.5, arrive=19.85, temp=98, ev_kwh=10.0, ev_kw=1.9)  # a neighbour's EV lends 10 kWh to one medical home
 DISCLAIMER = 'Illustrative simulation. Real sharing requires a utility pilot.'
 
 
@@ -199,14 +200,14 @@ def failure_time(series):
     return None
 
 
-def run_scenario(homes, transformers, peak, ratings=None):
+def run_scenario(homes, transformers, peak, ratings=None, may_act=True):
     base = {h['index']: baseline(h, peak) for h in homes}
     without = {i: finish([dict(row) for row in rows]) for i, rows in base.items()}
     total = lambda rows, t: [sum(rows[i][k]['grid'] for i in transformers[t]) for k in range(len(HOURS))]
     if ratings is None:
         ratings = {t: max(total(without, t)) / TARGET_PEAK[t] for t in transformers}
     forecast = {t: [v / ratings[t] for v in total(without, t)] for t in transformers}
-    at_risk = [t for t in transformers if max(forecast[t][:CHART_END + 1]) > 1.0]
+    at_risk = [t for t in transformers if may_act and max(forecast[t][:CHART_END + 1]) > 1.0]
 
     def plan(t, r, share=True):
         members = transformers[t]
@@ -269,20 +270,55 @@ def run_scenario(homes, transformers, peak, ratings=None):
     return result, ratings
 
 
+def outage_scenario(homes, transformers, ratings, centers):
+    """The street loses power at OUTAGE['start']. Batteries island to their own homes; nothing moves over the
+    downed lines. A neighbour's EV is driven to the medical home with the least backup left."""
+    result, _ = run_scenario(homes, transformers, OUTAGE['temp'], ratings, may_act=False)
+    k0 = HOURS.index(OUTAGE['start'])
+    for loads in result['transformers'].values():
+        for key in loads:
+            loads[key] = loads[key][:k0] + [0.0] * (len(HOURS) - k0)
+    for row in result['homes']:
+        for key in row['load']:
+            row['load'][key] = row['load'][key][:k0] + [0.0] * (len(HOURS) - k0)
+    medical = [h for h in homes if h['medical']]
+    full = {h['index']: h['medical']['backup_kwh'] / h['medical']['essential_kw'] for h in medical}
+    recipient = min(medical, key=lambda h: full[h['index']])
+    distance = lambda h: math.dist(centers[h['index']], centers[recipient['index']])
+    donor = min((h for h in homes if h['ev'] and not h['medical']), key=distance)
+    gain = OUTAGE['ev_kwh'] / recipient['medical']['essential_kw']
+    left = lambda i, hour, extra: round(max(0.0, full[i] + extra - max(0.0, hour - OUTAGE['start'])), 2)
+    result['outage'] = dict(
+        start=OUTAGE['start'], arrive=OUTAGE['arrive'], recipient=recipient['index'], donor=donor['index'],
+        ev_kwh=OUTAGE['ev_kwh'], ev_kw=OUTAGE['ev_kw'],
+        islanded=[h['index'] for h in homes if h['battery']],
+        medical=[dict(index=h['index'], hours=round(full[h['index']], 2),
+                      without=[left(h['index'], hour, 0) for hour in HOURS],
+                      **{'with': [left(h['index'], hour, gain if h is recipient and hour >= OUTAGE['arrive'] else 0) for hour in HOURS]})
+                 for h in medical],
+        summary=dict(medical=len(medical), covered_with=len(medical),
+                     covered_without=sum(1 for h in medical if full[h['index']] >= HOURS[CHART_END] - OUTAGE['start']),
+                     recipient_hours=round(full[recipient['index']], 1), recipient_hours_with=round(full[recipient['index']] + gain, 1)))
+    result['failure'] = {t: None for t in transformers}
+    return result
+
+
 def build():
     map_data = json.loads((ROOT / 'public' / 'burbank.json').read_text())
     homes = make_homes(map_data)
     transformers = {t['id']: t['homes'] for t in map_data['transformers']}
+    centers = {f['homeIndex']: f['center'] for f in map_data['features'] if 'homeIndex' in f}
     heat_wave, ratings = run_scenario(homes, transformers, 108)
     hot_day, _ = run_scenario(homes, transformers, 92, ratings)
+    outage = outage_scenario(homes, transformers, ratings, centers)
     public = [{k: h[k] for k in ('index', 'id', 'transformer', 'thermostat', 'ev', 'battery', 'medical', 'away')} for h in homes]
     return dict(
         seed=SEED, hours=HOURS, chart_end=CHART_END, base_rate=BASE_RATE, disclaimer=DISCLAIMER,
         transformers=[dict(id=t['id'], street=t['street'], homes=t['homes'], rating_kva=round(ratings[t['id']], 1)) for t in map_data['transformers']],
         homes=public,
         settings=dict(normal_f=NORMAL_F, precool_f=PRECOOL_F, away_f=AWAY_F, medical_f=MEDICAL_F, precool=PRECOOL, hold=HOLD, ease=EASE,
-                      payback=PAYBACK, ev_kw=EV_KW, ev_later=EV_LATER, battery=BATTERY, share=SHARE, failure=FAILURE, target_with=TARGET_WITH),
-        scenarios=dict(heat_wave=heat_wave, hot_day=hot_day),
+                      payback=PAYBACK, ev_kw=EV_KW, ev_later=EV_LATER, battery=BATTERY, share=SHARE, failure=FAILURE, target_with=TARGET_WITH, outage=OUTAGE),
+        scenarios=dict(heat_wave=heat_wave, hot_day=hot_day, outage=outage),
     )
 
 

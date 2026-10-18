@@ -43,6 +43,9 @@
 .sg-chip svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2}
 .sg-chip.cool{background:#e3f0fb;color:#2f78bd}
 .sg-chip.warm{background:#fcefdc;color:#b46a17}
+.sg-chip.backup{background:#fff4df;color:#9a6512}
+.sg-chip.backup.low{background:#fbe3df;color:#b04a3e}
+.sg-chip.backup.ev{background:#e2f4ea;color:#2e7655}
 .sg-badge{display:flex;align-items:center;gap:2px;padding:3px 6px;border-radius:8px;background:#fffffff2;box-shadow:0 2px 8px #1d392a24;color:#4d6457;font:700 9px/1 var(--font,sans-serif)}
 .sg-badge svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
 .sg-badge em{font-style:normal;margin-left:2px}
@@ -128,6 +131,7 @@
 .sg-chart .peak.bad circle{fill:#c25a4b}
 .sg-chart .peak.bad text,.sg-chart .peak.fail text{fill:#b0503f}
 .sg-chart .peak.good text{fill:var(--sg-green)}
+.sg-chart .note{font-weight:600;fill:#6f7f75}
 .sg-disclaimer{margin:0;font-size:11px;color:#8a9a8f;text-align:center}
 
 @media (max-width:760px){

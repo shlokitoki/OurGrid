@@ -4,18 +4,21 @@ import {useEffect, useRef, useState} from 'react';
 import {BatteryCharging, Car, Check, HeartPulse, Pause, Play, RotateCcw, Thermometer, X} from 'lucide-react';
 import type {Model, StreetMap} from './types';
 import type {Shot} from './StreetScene';
-import LoadChart from './LoadChart';
-import {END, HEAT_BEATS, START, clock, sample, type Mode, type View} from './story';
+import LoadChart, {BackupChart} from './LoadChart';
+import {BEATS, END, SCENARIOS, START, clock, focusOf, sample, type Mode, type View} from './story';
 
 const StreetScene = dynamic(() => import('./StreetScene'), {ssr: false, loading: () => <div className="sg-loading"><span className="loader"/>Building the Burbank block…</div>});
-const SHOTS: Record<string, Shot> = {forecast: 'wide', street: 'focus', precool: 'focus', easeoff: 'close', share: 'share', result: 'result'};
+const SHOTS: Record<string, Shot> = {
+  forecast: 'wide', street: 'focus', precool: 'focus', easeoff: 'close', share: 'share', result: 'result',
+  'hot-day': 'wide', 'hot-idle': 'wide', 'out-down': 'wide', 'out-island': 'focus', 'out-route': 'route', 'out-result': 'focus',
+};
 const IDLE = -1;
 type Compare = Mode | 'compare';
 
 const easeInOut = (p: number) => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
 
 export default function StreetDemo({map, model, run}: {map: StreetMap; model: Model; run: number}) {
-  const [scenario] = useState('heat_wave');
+  const [scenario, setScenario] = useState('heat_wave');
   const [beat, setBeat] = useState(IDLE);       // IDLE, a beat index, or HEAT_BEATS.length once you're exploring
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(12.5);
@@ -23,9 +26,9 @@ export default function StreetDemo({map, model, run}: {map: StreetMap; model: Mo
   const [split, setSplit] = useState(0.5);
   const [home, setHome] = useState<number | null>(null);
   const [chartFor, setChartFor] = useState('B');
-  const elapsed = useRef(0), beatRef = useRef(IDLE), stage = useRef<HTMLDivElement>(null);
+  const elapsed = useRef(0), beatRef = useRef(IDLE), stage = useRef<HTMLDivElement>(null), dragged = useRef(false);
   beatRef.current = beat;
-  const beats = HEAT_BEATS;
+  const beats = BEATS[scenario];
   const exploring = beat >= beats.length;
 
   useEffect(() => {
@@ -37,12 +40,18 @@ export default function StreetDemo({map, model, run}: {map: StreetMap; model: Mo
       let b = Math.max(0, beatRef.current);
       while (b < beats.length && elapsed.current >= beats[b].seconds) {elapsed.current -= beats[b].seconds; b++;}
       if (b >= beats.length) {
-        setBeat(beats.length); setPlaying(false); setTime(beats[beats.length - 1].to); setMode('compare');
+        const last = beats[beats.length - 1];
+        setBeat(beats.length); setPlaying(false); setTime(last.to); setMode(last.split ? 'compare' : 'with');
         return;
       }
       const current = beats[b];
       setBeat(b);
       setMode(current.split ? 'compare' : 'with');
+      if (current.split && !dragged.current) {
+        // Sweep the divider across once so both worlds are seen on the street in focus.
+        const e = elapsed.current;
+        setSplit(e < 1.6 ? 0.82 - 0.64 * easeInOut(e / 1.6) : e < 2.8 ? 0.18 + 0.32 * easeInOut((e - 1.6) / 1.2) : 0.5);
+      }
       setTime(current.from + (current.to - current.from) * easeInOut(Math.min(1, elapsed.current / current.seconds)));
       frame = requestAnimationFrame(tick);
     };
@@ -50,7 +59,8 @@ export default function StreetDemo({map, model, run}: {map: StreetMap; model: Mo
     return () => cancelAnimationFrame(frame);
   }, [playing, beats]);
 
-  const start = () => {elapsed.current = 0; setHome(null); setChartFor('B'); setSplit(0.5); setBeat(0); setPlaying(true);};
+  const start = () => {elapsed.current = 0; beatRef.current = 0; dragged.current = false; setHome(null); setChartFor('B'); setSplit(0.5); setMode('with'); setBeat(0); setPlaying(true);};
+  const choose = (key: string) => {setScenario(key); start();};
   useEffect(() => {if (run > 0) start();}, [run]); // eslint-disable-line react-hooks/exhaustive-deps
   const togglePlay = () => {
     if (playing) setPlaying(false);
@@ -61,15 +71,16 @@ export default function StreetDemo({map, model, run}: {map: StreetMap; model: Mo
 
   const s = model.scenarios[scenario];
   const current = beat >= 0 && beat < beats.length ? beats[beat] : null;
-  const focus = current ? s.at_risk[0] ?? null : exploring ? chartFor : null;
+  const focus = current ? focusOf(model, s) : exploring ? chartFor : null;
   const viewMode: Mode = mode === 'compare' ? 'with' : mode;
   const view: View = {scenario, time, mode: viewMode, beat: current?.key ?? null, split: mode === 'compare' ? split : null, focus, selectedHome: home};
   const shot: Shot = beat === IDLE ? 'hero' : current ? SHOTS[current.key] : 'free';
   const temp = Math.round(current?.dayBefore ? s.peak_temp_f : sample(s.outdoor_f, model.hours, time));
-  const summary = s.summary;
-  const showNumbers = !!summary && (exploring || (current?.key === 'result' && elapsed.current > 3));
+  const lastBeat = current !== null && beat === beats.length - 1 && elapsed.current > 2.5;
+  const showNumbers = exploring || lastBeat;
 
   const dragSplit = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragged.current = true;
     const rect = stage.current!.getBoundingClientRect();
     const move = (e: PointerEvent) => setSplit(Math.max(0.08, Math.min(0.92, (e.clientX - rect.left) / rect.width)));
     const up = () => {window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);};
@@ -81,7 +92,8 @@ export default function StreetDemo({map, model, run}: {map: StreetMap; model: Mo
   return <div className="sg-demo">
     <div className="sg-toolbar">
       <div className="sg-scenarios" role="group" aria-label="Scenario">
-        <button className="active" aria-pressed="true">Heat wave <small>108°F</small></button>
+        {SCENARIOS.map(sc => <button key={sc.key} className={scenario === sc.key ? 'active' : ''} aria-pressed={scenario === sc.key}
+          onClick={() => choose(sc.key)}>{sc.label}{sc.note && <small>{sc.note}</small>}</button>)}
       </div>
       <div className="sg-compare" role="group" aria-label="Compare with and without OurGrid">
         {(['without', 'compare', 'with'] as Compare[]).map(m => <button key={m} aria-pressed={mode === m} className={mode === m ? 'active' : ''}
@@ -104,13 +116,9 @@ export default function StreetDemo({map, model, run}: {map: StreetMap; model: Mo
         <div className="sg-side right" style={{left: `${split * 100}%`}}>With OurGrid</div>
         <div className="sg-divider" style={{left: `${split * 100}%`}} onPointerDown={dragSplit} role="slider" aria-label="Compare without and with OurGrid"
           aria-valuemin={8} aria-valuemax={92} aria-valuenow={Math.round(split * 100)} tabIndex={0}
-          onKeyDown={e => {if (e.key === 'ArrowLeft') setSplit(v => Math.max(0.08, v - 0.05)); if (e.key === 'ArrowRight') setSplit(v => Math.min(0.92, v + 0.05));}}><i/></div>
+          onKeyDown={e => {dragged.current = true; if (e.key === 'ArrowLeft') setSplit(v => Math.max(0.08, v - 0.05)); if (e.key === 'ArrowRight') setSplit(v => Math.min(0.92, v + 0.05));}}><i/></div>
       </>}
-      {showNumbers && summary && <div className="sg-numbers">
-        <div><b>{summary.peak_without}% → {summary.peak_with}%</b><span>Transformer {summary.transformer} peak</span></div>
-        <div><b>{summary.medical_adjusted}</b><span>Medical homes adjusted</span></div>
-        <div><b>{summary.kept_power_with} of {summary.homes}</b><span>Homes that kept power</span></div>
-      </div>}
+      {showNumbers && <Numbers model={model} scenario={scenario} mode={viewMode}/>}
       {home !== null && <HomeCard model={model} scenario={scenario} index={home} mode={viewMode} onClose={() => setHome(null)}/>}
       {beat === IDLE && <button className="sg-run" onClick={start}><Play size={16} fill="currentColor"/>Run the demo</button>}
     </div>
@@ -123,9 +131,29 @@ export default function StreetDemo({map, model, run}: {map: StreetMap; model: Mo
         onChange={e => {explore(); setTime(Number(e.target.value));}}/>
       <span className="sg-time">{clock(time)}</span>
     </div>
-    <LoadChart model={model} scenario={scenario} transformer={chartFor} time={time} beat={current?.key ?? null} mode={viewMode} compare={mode === 'compare'}/>
+    {s.outage ? <BackupChart model={model} scenario={scenario} time={time}/>
+      : <LoadChart model={model} scenario={scenario} transformer={chartFor} time={time} beat={current?.key ?? null} mode={viewMode} compare={mode === 'compare'}/>}
     <p className="sg-disclaimer">{model.disclaimer}</p>
   </div>;
+}
+
+function Numbers({model, scenario, mode}: {model: Model; scenario: string; mode: Mode}) {
+  const s = model.scenarios[scenario];
+  let items: [string, string][];
+  if (s.outage) {
+    const o = s.outage.summary;
+    items = [[`${mode === 'with' ? o.covered_with : o.covered_without} of ${o.medical}`, 'Medical homes with power'],
+      [mode === 'with' ? `${o.recipient_hours} h → ${o.recipient_hours_with} h` : `${o.recipient_hours} h`, `Backup at ${model.homes[s.outage.recipient].id}`],
+      ['0', 'Power sent over downed lines']];
+  } else if (s.summary) {
+    const m = s.summary;
+    items = [[`${m.peak_without}% → ${m.peak_with}%`, `Transformer ${m.transformer} peak`], [String(m.medical_adjusted), 'Medical homes adjusted'],
+      [`${mode === 'with' ? m.kept_power_with : m.kept_power_without} of ${m.homes}`, 'Homes that kept power']];
+  } else {
+    const peak = Math.max(...Object.values(s.transformers).map(t => Math.max(...t.without.slice(0, model.chart_end + 1))));
+    items = [[`${Math.round(peak)}%`, 'Highest transformer load'], ['0', 'OurGrid actions'], ['0', 'Medical homes adjusted']];
+  }
+  return <div className="sg-numbers">{items.map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}</div>;
 }
 
 function HomeCard({model, scenario, index, mode, onClose}: {model: Model; scenario: string; index: number; mode: Mode; onClose: () => void}) {
@@ -136,7 +164,16 @@ function HomeCard({model, scenario, index, mode, onClose}: {model: Model; scenar
   const acting = s.at_risk.includes(home.transformer);
   const share = s.share;
   const did: string[] = [];
-  if (acting && mode === 'with') {
+  const outage = s.outage;
+  if (outage) {
+    const backup = outage.medical.find(m => m.index === index);
+    if (outage.islanded.includes(index)) did.push('Battery islanded: powers only this home, never the downed lines.');
+    if (index === outage.donor) did.push(mode === 'with' ? "Drove its EV to the medical home with the least backup." : 'EV stays parked: nobody coordinates.');
+    if (backup) did.push(index === outage.recipient && mode === 'with'
+      ? `Received ${outage.ev_kwh} kWh from a neighbor's EV: backup ${backup.hours.toFixed(1)} h → ${(backup.hours + outage.ev_kwh / (home.medical?.essential_kw ?? 1)).toFixed(0)} h.`
+      : `Running on backup: ${backup.hours.toFixed(1)} hours when the grid went down.`);
+    if (!did.length) did.push('No power until the grid returns.');
+  } else if (acting && mode === 'with') {
     if (home.medical) did.push('Never adjusted: thermostat, devices and backup left alone.');
     else {
       if (series.mode.includes('p')) did.push(`Pre-cooled to ${model.settings.precool_f}°F from 1 to 4 PM.`);
