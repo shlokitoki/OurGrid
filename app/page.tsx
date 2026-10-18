@@ -7,9 +7,11 @@ import {DEMO_DURATIONS,DEMO_STEPS,stageCopy,ProblemSolution,DemoPlayback,WhyThis
 import {HouseScene,ClosingStatement} from '../components/HouseScenes';
 import {ExchangePortal} from '../components/ExchangePortal';
 import LaunchScreen from '../components/LaunchScreen';
+import StreetDemo from '../components/street/StreetDemo';
 import './demo.css';
 import './exchange.css';
 import './launch.css';
+import './street.css';
 const Neighborhood=dynamic(()=>import('../components/Neighborhood'),{ssr:false,loading:()=> <div className="map-loading"><span className="loader"/>Building your neighborhood…</div>});
 const scenarioDefs=[{bit:1,title:'Grid overload',sub:'Demand spike',icon:Zap},{bit:2,title:'Storm warning',sub:'Protect more reserve',icon:CloudLightning},{bit:4,title:'Communication loss',sub:'50 batteries offline',icon:WifiOff},{bit:8,title:'Battery failures',sub:'25 units unavailable',icon:BatteryWarning}];
 const n=(v:number,d=1)=>v.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
@@ -69,6 +71,7 @@ export default function Page(){
   <div className="workspace"><header className="topbar"><div className="wordmark">OurGrid<span className="demo-label">FLEET SIMULATOR</span></div><div className="top-right"><span className="local-status"><i/>Simulation online</span><span className="top-separator"/><button className="text-button" onClick={()=>{setDemo(false);setLaunchVisible(true)}}>View Launch <Play size={13}/></button><button className="text-button" onClick={()=>setModal('method')}>How it works <ArrowUpRight size={14}/></button><button className="icon-button notification" aria-label="Open activity" onClick={()=>setTab('Activity')}><Bell size={18}/>{logs.length>0&&<i/>}</button></div></header>
   <main>
    <div className="page-heading"><div><div className="eyebrow"><span/> COMMUNITY ENERGY, COORDINATED</div><h1>Keep the lights on.</h1><p>A little flexibility. A more resilient neighborhood.</p></div><div className="heading-actions"><div className="mode-switch" aria-label="Operating mode"><button className={mode==='everyday'?'active':''} onClick={()=>{setMode('everyday');setApplied(false);setDemo(false);setStep(-1)}}><Leaf size={14}/>Everyday</button><button className={mode==='emergency'?'active':''} onClick={()=>{setMode('emergency');setApplied(false);setDemo(false);setStep(-1)}}><ShieldCheck size={14}/>Resilience</button></div><button className="primary-button demo-button" onClick={startDemo}>{demo?<Pause size={15} fill="currentColor"/>:<Play size={15} fill="currentColor"/>}{demo?step===12?'Replay demo':'Pause demo':step>=0&&step<12?'Resume demo':'Run live demo'}<span>↗</span></button></div></div>
+   <section className="sg-section"><StreetDemo/></section>
    <ProblemSolution/>
    <div className="tabs-row"><nav aria-label="Dashboard views">{['Overview','Fleet','Impact','Exchange','Activity'].map(t=><button key={t} className={tab===t?'active':''} onClick={()=>{setTab(t);if(t!=='Overview')setDemo(false)}}>{t}{t==='Fleet'&&<span>100</span>}{t==='Activity'&&logs.length>0&&<i/>}</button>)}</nav><span><Clock3 size={13}/>15-minute planning window <span className="tiny-dot">·</span> Fictional fleet</span></div>
    {tab==='Overview'||tab==='Impact'?<>
